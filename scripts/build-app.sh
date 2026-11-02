@@ -7,8 +7,10 @@ VERSION="${VERSION:-1.0.0}"
 BUNDLE_ID="dev.envy.Envy"
 APP="dist/Envy.app"
 
-swift build -c release --product Envy
-BIN="$(swift build -c release --show-bin-path)/Envy"
+# Universal: runs natively on Apple Silicon and Intel Macs.
+ARCHS=(--arch arm64 --arch x86_64)
+swift build -c release --product Envy "${ARCHS[@]}"
+BIN="$(swift build -c release "${ARCHS[@]}" --show-bin-path)/Envy"
 
 [ -f Resources/AppIcon.icns ] || swift scripts/make-icon.swift Resources
 
