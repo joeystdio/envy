@@ -1,122 +1,154 @@
-# Envy
+<p align="center">
+  <img src="assets/icon.png" width="128" height="128" alt="Envy Icon">
+</p>
 
-Secrets and environment variables for your terminal and the coding agents you run in it.
+<h1 align="center">Envy</h1>
 
-Envy is a native macOS app. You keep **Global** variables plus per-**project** sets, switch any project or
-single variable on or off, and every terminal (and Claude Code, Codex, Cursor or Aider started from it) gets
-exactly what's switched on. Secrets live in your Keychain, not in dotfiles.
+<p align="center">
+  <strong>Environment variables & secrets for your terminal and AI coding agents — native macOS, 100% free & open-source.</strong>
+</p>
 
-## Download
+<p align="center">
+  <a href="https://github.com/joeystdio/envy/releases/latest/download/Envy.dmg">
+    <img src="https://img.shields.io/badge/Download-Envy.dmg-10B981?style=for-the-badge&logo=apple" alt="Download Envy.dmg">
+  </a>
+  <a href="https://github.com/joeystdio/envy/releases/latest">
+    <img src="https://img.shields.io/github/v/release/joeystdio/envy?style=for-the-badge&color=blue" alt="Latest Release">
+  </a>
+  <img src="https://img.shields.io/badge/macOS-15.0%2B%20(Universal)-success?style=for-the-badge&logo=apple" alt="macOS 15+ Universal">
+  <img src="https://img.shields.io/badge/Apple-Notarized-black?style=for-the-badge&logo=apple" alt="Apple Notarized">
+  <a href="https://buymeacoffee.com/joeystdio">
+    <img src="https://img.shields.io/badge/☕_Buy_Me_a_Coffee-joeystdio-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy Me a Coffee">
+  </a>
+</p>
 
-**[Download Envy.dmg](https://github.com/joeystdio/envy/releases/latest/download/Envy.dmg)** (macOS 15 or later),
-open it and drag Envy into Applications. On first launch the Setup Assistant connects your terminal and imports
-your projects. Older versions are on the [Releases](https://github.com/joeystdio/envy/releases) page.
+<p align="center">
+  <img src="assets/screenshot.png" width="760" alt="Envy Screenshot">
+</p>
 
-## How it works
+---
 
-- **Global** loads in every terminal.
-- A **project without a folder** loads in every terminal too, on top of Global.
-- A **project with linked folders** loads only while the terminal is inside one of those folders (or a
-  subfolder), direnv-style, and unloads when you leave. If a variable overrode something, the old value comes back.
-- Precedence, later wins: Global, then always-on projects (sidebar order), then folder projects (deepest folder last).
-- Changes reach open terminals at their next prompt. New tabs, tmux panes and editor terminals also pick up
-  what their parent applied and clean it up correctly.
+## ✨ Features
 
-Envy adds one marked line to `~/.zshrc` (and/or `~/.bashrc`, `~/.bash_profile`) from **Shell Integration**.
-That line sources `~/.config/envy/init.sh`; the app regenerates `~/.config/envy/vars.sh` (mode 600) whenever
-you change something. Disconnecting removes the line again; a backup of the previous file is kept as
-`<file>.envy-backup`.
+- **🔐 Secrets in your Keychain, not your dotfiles**: API keys and tokens live in the macOS Keychain and are masked in the app. No more `export OPENAI_API_KEY=…` in plain text in `~/.zshrc`, where every program you run (coding agents included) can read it.
+- **🌍 Global + per-project variables**: Keep **Global** variables that load in every terminal, plus a set per project that adds to or overrides them.
+- **📂 Folder-aware, direnv-style**: Link a project to a folder and its variables load the moment a terminal `cd`s in, and unload when it leaves. Anything they overrode gets its old value back.
+- **🎚️ One-click on/off**: Switch a whole project or a single variable on or off, from the window or the **menu bar**. Open terminals pick it up at their next prompt, no restart needed.
+- **🤖 Built for coding agents**: Claude Code, Codex, Cursor CLI, Gemini CLI, Aider and friends get exactly what's switched on for the folder you start them in, and nothing else.
+- **📥 Import everything**:
+  - Scan a whole folder of code at once for `.env`, `.env.local` and `.envrc` files.
+  - **.NET**: `appsettings.json`, `appsettings.Development.json` and `dotnet user-secrets`, flattened the way .NET reads them (`ConnectionStrings:Default` → `ConnectionStrings__Default`).
+  - Paste or drop `.env` text, copy variables between projects, export back to `.env`.
+- **🧭 Setup Assistant**: Detects your shell (zsh or bash, `ZDOTDIR`, dotfile symlinks) and the coding agents you have installed. It then connects your terminal, checks that a fresh shell loads Envy, and moves plain-text secrets out of your startup files into the Keychain.
+
+---
+
+## 📦 Installation
+
+### Option 1: Homebrew (Recommended)
+```bash
+brew tap joeystdio/tap
+brew install --cask envy
+```
+
+### Option 2: Direct Download (`.dmg`)
+1. Download [**`Envy.dmg`**](https://github.com/joeystdio/envy/releases/latest/download/Envy.dmg) from the [latest release](https://github.com/joeystdio/envy/releases/latest).
+2. Open `Envy.dmg` and drag **Envy.app** into your **Applications** folder.
+3. Launch **Envy**. The Setup Assistant connects your terminal and imports your projects.
+
+> Envy is signed with a Developer ID and **notarized by Apple**, so it opens without any Gatekeeper warnings.
+
+---
+
+## 🚀 Using Envy
+
+Envy adds one marked line to `~/.zshrc` (and/or `~/.bashrc`, `~/.bash_profile`). From then on, every terminal loads whatever you switch on:
+
+| Scope | Loads |
+| --- | --- |
+| 🌍 **Global** | In every terminal |
+| 📦 **Project without a folder** | In every terminal, on top of Global |
+| 📂 **Project with linked folders** | Only inside those folders (and subfolders) |
+
+Later wins: Global, then always-on projects (sidebar order), then folder projects (deepest folder last).
 
 In a terminal:
 
-```
+```bash
 envy status   # which projects and variables are loaded here
 envy reload   # reload right now
 envy open     # open the app
 ```
 
-## Setup Assistant
+- **🔒 Secret**: stored in the Keychain and masked in the app.
+- **💲 Expand**: the value is evaluated like a double-quoted shell string, so `$HOME/bin:$PATH`, `${OTHER}`, `~` and `$(command)` work. Off by default, so values pass through literally.
+- **Shortcuts**: ⌘N new variable, ⇧⌘N new project, ⌘I import `.env`, ⇧⌘I import projects from a folder, ⇧⌘E export `.env`, ⌘Z undo.
 
-On first launch (and any time from Envy › Setup Assistant…) Envy:
+<details>
+<summary><strong>How the shell hook works</strong></summary>
 
-1. **Detects your setup**: login shell, where zsh reads its startup files (`ZDOTDIR` set in `~/.zshenv`, dotfile
-   symlinks), and which coding agents are on your PATH (Claude Code, Codex, Cursor CLI, Gemini CLI, Aider, …).
-2. **Connects the right startup file**, then opens a fresh login shell in the background to verify it loads Envy.
-3. **Finds plain-text secrets** exported from `~/.zshrc`, `~/.zprofile`, `~/.zshenv`, `~/.bashrc`, … and imports
-   the ones you pick into Global (secrets go to the Keychain), telling you which lines to delete afterwards.
-4. **Imports your projects**: pick a folder (one-click for `~/Developer`, `~/code`, …) and every folder with a
-   `.env`, `.env.local`, `.envrc`, or .NET `appsettings.json` / user secrets becomes a folder-linked project.
+The line in your startup file sources `~/.config/envy/init.sh`. The app regenerates `~/.config/envy/vars.sh` (mode 600) whenever you change something. At every prompt, and on `cd` in zsh, the hook checks a generation stamp and the current folder. When either changed, it puts back everything it set earlier and applies the current set. New tabs, tmux panes and editor terminals inherit what their parent applied and clean it up correctly.
 
-## .NET
+Disconnecting from **Shell Integration** removes the line again; a copy of the previous file is kept as `<file>.envy-backup`.
+</details>
 
-.NET reads configuration overrides from environment variables with `__` between sections, so Envy flattens
-`appsettings.json` and `appsettings.Development.json` that way (`ConnectionStrings:Default` becomes
-`ConnectionStrings__Default`; comments and trailing commas are fine; `Logging` and `AllowedHosts` are skipped).
-`dotnet user-secrets` (found through the `UserSecretsId` in the `.csproj`) are imported too, always as secrets, and
-win over the files. Copies under `bin/` and `obj/` are ignored. You can also paste or open an `appsettings.json` in
-the Import sheet.
+---
 
-## Using it
+## 🛠️ Building from Source
 
-- **Add** variables one by one (⌘N), **paste or drop** a `.env` or `appsettings.json` file, or **copy from another project**.
-- **Import projects** from a folder of code any time (⇧⌘I, or the button at the bottom of the sidebar).
-- Select rows and use the context menu to copy or move them to another project, copy them as `.env`, toggle
-  secret, or turn them off. ⌘C / ⌘V on the table copy and paste `.env` text. ⌘Z undoes.
-- **Secret** (lock icon): the value is stored in the Keychain and masked in the app.
-- **Expand** (`$` icon): the value is evaluated like a double-quoted shell string, so `$HOME/bin:$PATH`,
-  `${OTHER}`, `~` and `$(command)` work. Off by default, so values are passed through literally.
-- **Export .env** writes a project's enabled variables to a file (mode 600).
-- The **menu bar** icon has quick on/off switches for every project.
-
-## Build
-
-Requires Xcode 16+ (Swift 6 toolchain); the app runs on macOS 15 or later.
+Requires macOS 15.0+ and Xcode 16+ (Swift 6 toolchain):
 
 ```bash
+git clone https://github.com/joeystdio/envy.git
+cd envy
 swift test                      # core tests, including real zsh and bash runs of the hook
-scripts/build-app.sh            # builds dist/Envy.app
-scripts/build-app.sh --install  # also copies it to /Applications
+scripts/build-app.sh --install  # builds dist/Envy.app and copies it to /Applications
 ```
 
-The build signs with your Developer ID Application certificate when you have one. The Keychain then keeps
-trusting Envy across rebuilds: after you click Always Allow once, updates don't ask again. Without a certificate
-the signature is ad-hoc, and macOS asks for Keychain access after every rebuild. To pick another identity, or
-ad-hoc with `-`:
+This compiles a Universal Binary (`arm64` Apple Silicon + `x86_64` Intel) and bundles `Envy.app`. It signs with your **Developer ID Application** certificate when you have one, so the Keychain keeps trusting Envy across rebuilds; otherwise it signs ad-hoc. Set `CODESIGN_IDENTITY` to choose another identity, or `-` for ad-hoc.
 
-```bash
-CODESIGN_IDENTITY="Apple Development: Your Name (TEAMID)" scripts/build-app.sh
-```
-
-## Sharing with colleagues
-
-`scripts/release.sh` builds `dist/Envy.dmg`: signed with your Developer ID, notarized by Apple and stapled, so it
-opens without Gatekeeper warnings on any Mac. Number each release with `VERSION`, then publish it as a GitHub
-release; the Download link above always serves the newest one.
-
-It uses the notarization credentials saved in your Keychain as `notarytool-profile` (set `NOTARY_PROFILE` for
-another name). To save them on a new Mac, with an app-specific password made at
-[account.apple.com](https://account.apple.com) under Sign-In and Security:
-
-```bash
-xcrun notarytool store-credentials notarytool-profile --apple-id you@example.com --team-id R78A8G6R2N
-```
-
-Then for each release:
-
-```bash
-VERSION=1.0.1 scripts/release.sh
-gh release create v1.0.1 dist/Envy.dmg --title "Envy 1.0.1" --generate-notes
-```
-
-To try it without touching your real setup, point it at a sandbox folder. Settings, secrets (as a file instead
-of the Keychain), shell files and startup files then all live there:
+To try it without touching your real setup, point it at a sandbox folder. Settings, secrets (as a file instead of the Keychain), shell files and startup files then all live there:
 
 ```bash
 open -n --env ENVY_HOME=/tmp/envy-sandbox dist/Envy.app
 ```
 
-## Layout
+<details>
+<summary><strong>Releasing a new version</strong></summary>
 
-- `Sources/EnvyCore`: model, `.env` parsing, shell hook and script generation, startup-file editing.
-- `Sources/Envy`: the SwiftUI app (window, menu bar extra, Keychain, persistence).
-- `Tests/EnvyCoreTests`: unit tests plus integration tests that run the generated hook in `/bin/zsh` and `/bin/bash`.
+`scripts/release.sh` builds `dist/Envy.dmg`, signs it with your Developer ID, has Apple notarize it and staples the ticket. It uses the notarization credentials saved in your Keychain as `notarytool-profile` (set `NOTARY_PROFILE` for another name). To save them on a new Mac, with an app-specific password from [account.apple.com](https://account.apple.com):
+
+```bash
+xcrun notarytool store-credentials notarytool-profile --apple-id you@example.com --team-id R78A8G6R2N
+```
+
+Then:
+
+```bash
+VERSION=1.0.2 scripts/release.sh
+gh release create v1.0.2 dist/Envy.dmg --title "Envy 1.0.2" --generate-notes
+```
+
+The DMG keeps the same name for every version, so the download links above always serve the newest release. Update `version` and `sha256` in the [Homebrew cask](https://github.com/joeystdio/homebrew-tap/blob/main/Casks/envy.rb) too.
+</details>
+
+---
+
+## ☕ Support & Buy Me a Coffee
+
+Envy is 100% free and open-source. If it keeps your secrets out of your dotfiles and your agents well-fed, consider buying me a coffee!
+
+<p align="left">
+  <a href="https://buymeacoffee.com/joeystdio">
+    <img src="https://img.shields.io/badge/☕_Buy_Me_a_Coffee-buymeacoffee.com%2Fjoeystdio-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy Me a Coffee">
+  </a>
+  <a href="https://paypal.me/joeystdio">
+    <img src="https://img.shields.io/badge/💳_PayPal-paypal.me%2Fjoeystdio-00457C?style=for-the-badge&logo=paypal&logoColor=white" alt="Support via PayPal">
+  </a>
+</p>
+
+---
+
+## 📄 License
+
+MIT License — completely free and open source forever.
