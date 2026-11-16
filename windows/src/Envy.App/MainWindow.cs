@@ -31,7 +31,7 @@ public sealed class MainWindow : Window
         Title = state.Store.Paths.IsSandbox ? $"Envy (sandbox: {state.Store.Paths.Home})" : "Envy";
         SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Envy.ico"));
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(1180, 760));
+        FitToScreen(1180, 760);
         if (AppWindow.Presenter is OverlappedPresenter presenter)
         {
             presenter.PreferredMinimumWidth = 900;
@@ -68,7 +68,7 @@ public sealed class MainWindow : Window
         root.Children.Add(titleBar);
         Grid.SetRow(nav, 1);
         root.Children.Add(nav);
-        Grid.SetRowSpan(overlay, 2);
+        Grid.SetRow(overlay, 1);
         overlay.Background = UI.Brush("SolidBackgroundFillColorBaseBrush");
         root.Children.Add(overlay);
         AddShortcuts(root);
@@ -98,6 +98,19 @@ public sealed class MainWindow : Window
             if (!state.Store.AnyConnected && !state.Store.HasOnboarded) ShowSetupAssistant();
         };
     }
+
+    /// <summary>The preferred size, or less on a small screen, centered in the work area.</summary>
+    void FitToScreen(int width, int height)
+    {
+        var area = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
+        var scale = GetDpiForWindow(WinRT.Interop.WindowNative.GetWindowHandle(this)) / 96.0;
+        var w = Math.Min((int)(width * scale), area.Width - 32);
+        var h = Math.Min((int)(height * scale), area.Height - 32);
+        AppWindow.MoveAndResize(new Windows.Graphics.RectInt32(area.X + (area.Width - w) / 2, area.Y + (area.Height - h) / 2, w, h));
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern uint GetDpiForWindow(IntPtr hWnd);
 
     public void ShowAndActivate()
     {
@@ -158,7 +171,7 @@ public sealed class MainWindow : Window
 
     NavigationViewItem ProjectItem(Project p)
     {
-        var toggle = new ToggleSwitch { IsOn = p.IsEnabled, OnContent = null, OffContent = null, MinWidth = 0, Margin = new Thickness(0, 0, -76, 0) };
+        var toggle = new ToggleSwitch { IsOn = p.IsEnabled, OnContent = null, OffContent = null, MinWidth = 0, Width = 52, Margin = new Thickness(4, 0, 0, 0) };
         UI.SetToolTip(toggle, p.IsEnabled ? "Loaded. Click to turn off." : "Off. Click to load these variables.");
         var id = p.Id;
         toggle.Toggled += (_, _) => { if (!rebuildingNav) state.Store.SetProjectEnabled(id, toggle.IsOn); };
