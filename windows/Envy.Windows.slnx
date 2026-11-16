@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Envy.Core/Envy.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Envy.Core.Tests/Envy.Core.Tests.csproj" />
+  </Folder>
+</Solution>

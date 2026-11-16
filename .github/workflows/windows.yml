@@ -1,0 +1,43 @@
+name: Windows
+
+on:
+  push:
+    branches: ["**"]
+    paths: ["windows/**", ".github/workflows/windows.yml"]
+  pull_request:
+    paths: ["windows/**", ".github/workflows/windows.yml"]
+  # Creating a release (for example gh release create v1.2.0 dist/Envy.dmg) builds the installer and attaches it.
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Attach Envy-Setup.exe to this existing release tag (leave empty to only build)"
+        required: false
+
+defaults:
+  run:
+    working-directory: windows
+
+jobs:
+  test:
+    name: Core tests (PowerShell, Git Bash, cmd)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Shells on this runner
+        shell: pwsh
+        run: |
+          $PSVersionTable.PSVersion.ToString()
+          & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
+          & "C:\Program Files\Git\bin\bash.exe" --version | Select-Object -First 1
+      - name: Test
+        run: dotnet test --project tests/Envy.Core.Tests --report-xunit-trx --results-directory TestResults
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: windows/TestResults
