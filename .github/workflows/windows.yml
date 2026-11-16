@@ -65,6 +65,7 @@ jobs:
       - name: Publish the app
         run: |
           dotnet publish src/Envy.App -c Release -r win-x64 -p:Platform=x64 -p:Version=${{ steps.version.outputs.version }} -o artifacts/publish
+          Get-ChildItem src/Envy.App/bin, src/Envy.App/obj -Recurse -Filter *.pri | Format-Table FullName, Length -AutoSize
           Get-ChildItem artifacts/publish -Filter *.pri | Format-Table Name, Length
           "{0:N0} MB in {1} files" -f ((Get-ChildItem artifacts/publish -Recurse -File | Measure-Object Length -Sum).Sum / 1MB), (Get-ChildItem artifacts/publish -Recurse -File).Count
       - name: Start it in a sandbox and take screenshots
