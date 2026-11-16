@@ -63,7 +63,10 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
           "tag=$tag" >> $env:GITHUB_OUTPUT
       - name: Publish the app
-        run: dotnet publish src/Envy.App -c Release -r win-x64 -p:Platform=x64 -p:Version=${{ steps.version.outputs.version }} -o artifacts/publish
+        run: |
+          dotnet publish src/Envy.App -c Release -r win-x64 -p:Platform=x64 -p:Version=${{ steps.version.outputs.version }} -o artifacts/publish
+          Get-ChildItem artifacts/publish -Filter *.pri | Format-Table Name, Length
+          "{0:N0} MB in {1} files" -f ((Get-ChildItem artifacts/publish -Recurse -File | Measure-Object Length -Sum).Sum / 1MB), (Get-ChildItem artifacts/publish -Recurse -File).Count
       - name: Start it in a sandbox and take screenshots
         shell: pwsh
         run: |
@@ -87,7 +90,13 @@ jobs:
             $p = Start-Process artifacts/publish/Envy.exe -PassThru
             Start-Sleep -Seconds 20
             Shot "artifacts/smoke/$run.png"
-            if ($p.HasExited) { throw "Envy exited with code $($p.ExitCode)" }
+            if ($p.HasExited) {
+              $log = Join-Path $env:LOCALAPPDATA 'Envy\errors.log'
+              if (Test-Path $log) { Get-Content $log }
+              Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = (Get-Date).AddMinutes(-5) } -ErrorAction SilentlyContinue |
+                Where-Object { $_.ProviderName -in '.NET Runtime', 'Application Error' } | Format-List TimeCreated, ProviderName, Message
+              throw "Envy exited with code $($p.ExitCode)"
+            }
             $init = Join-Path $home_ 'AppData\Local\Envy\shell\init.ps1'
             if (-not (Test-Path $init)) { throw "Envy didn't write $init" }
             Stop-Process -Id $p.Id -Force

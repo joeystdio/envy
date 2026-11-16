@@ -5,18 +5,22 @@
 <h1 align="center">Envy</h1>
 
 <p align="center">
-  <strong>Environment variables & secrets for your terminal and AI coding agents — native macOS, 100% free & open-source.</strong>
+  <strong>Environment variables & secrets for your terminal and AI coding agents — native on macOS and Windows, 100% free & open-source.</strong>
 </p>
 
 <p align="center">
   <a href="https://github.com/joeystdio/envy/releases/latest/download/Envy.dmg">
     <img src="https://img.shields.io/badge/Download-Envy.dmg-10B981?style=for-the-badge&logo=apple" alt="Download Envy.dmg">
   </a>
+  <a href="https://github.com/joeystdio/envy/releases/latest/download/Envy-Setup.exe">
+    <img src="https://img.shields.io/badge/Download-Envy--Setup.exe-0078D4?style=for-the-badge&logo=windows" alt="Download Envy-Setup.exe">
+  </a>
   <a href="https://github.com/joeystdio/envy/releases/latest">
     <img src="https://img.shields.io/github/v/release/joeystdio/envy?style=for-the-badge&color=blue" alt="Latest Release">
   </a>
   <img src="https://img.shields.io/badge/macOS-15.0%2B%20(Universal)-success?style=for-the-badge&logo=apple" alt="macOS 15+ Universal">
   <img src="https://img.shields.io/badge/Apple-Notarized-black?style=for-the-badge&logo=apple" alt="Apple Notarized">
+  <img src="https://img.shields.io/badge/Windows-10%20%26%2011%20(x64)-0078D4?style=for-the-badge&logo=windows" alt="Windows 10 and 11">
   <a href="https://buymeacoffee.com/joeystdio">
     <img src="https://img.shields.io/badge/☕_Buy_Me_a_Coffee-joeystdio-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy Me a Coffee">
   </a>
@@ -58,6 +62,14 @@ brew install --cask envy
 
 > Envy is signed with a Developer ID and **notarized by Apple**, so it opens without any Gatekeeper warnings.
 
+### 🪟 Windows: Direct Download (`Envy-Setup.exe`)
+1. Download [**`Envy-Setup.exe`**](https://github.com/joeystdio/envy/releases/latest/download/Envy-Setup.exe) from the [latest release](https://github.com/joeystdio/envy/releases/latest).
+2. Run it. It installs for you only (in `%LOCALAPPDATA%\Programs\Envy`) and needs no admin rights.
+3. Envy opens and its Setup Assistant connects your shells and imports your projects.
+
+> The Windows installer isn't code-signed yet, so Microsoft Defender SmartScreen warns about an unknown publisher the first time. Click **More info**, then **Run anyway**. If your browser blocks the download, choose **Keep** in its download list.
+
+
 ---
 
 ## 🚀 Using Envy
@@ -92,9 +104,35 @@ The line in your startup file sources `~/.config/envy/init.sh`. The app regenera
 Disconnecting from **Shell Integration** removes the line again; a copy of the previous file is kept as `<file>.envy-backup`.
 </details>
 
+
+## 🪟 Envy on Windows
+
+The Windows app is native too (WinUI 3, with Mica and a tray icon instead of the menu bar), and it does the same job:
+
+| Shell | How it loads Envy | Per folder |
+| --- | --- | --- |
+| **PowerShell 7** and **Windows PowerShell 5.1** | A marked line in your profile (`Documents\PowerShell\profile.ps1`, `Documents\WindowsPowerShell\profile.ps1`) wraps the prompt | ✅ at every prompt, and right on `cd` in PowerShell 7 |
+| **Git Bash** | The same marked line as on the Mac, in `~/.bashrc` | ✅ at every prompt |
+| **Command Prompt** | Envy is chained onto cmd's `AutoRun` command (`HKCU\Software\Microsoft\Command Processor`), after anything already there | ⚠️ once, when the window opens, for the folder it opens in. Run `envy reload` after `cd` |
+
+- **🔐 Secrets in Credential Manager**: secret values are stored as generic credentials (`Envy/…`), encrypted by Windows for your account. Settings live in `%APPDATA%\Envy`.
+- **🧭 Setup Assistant**: finds PowerShell 7, Windows PowerShell, Git Bash and Command Prompt and the coding agents on their PATH, connects the shells and checks that a fresh one of each loads Envy. It also offers to move plain-text secrets out of your PowerShell profiles, `~/.bashrc` and your user environment variables into Credential Manager. Every file it changes keeps a copy as `<file>.envy-backup`.
+- **💲 Expand on Windows** fills in `%NAME%`, `$NAME`, `${NAME}`, `$env:NAME` and a leading `~` (your user folder) when a shell loads the value, so `%USERPROFILE%\bin;%PATH%` works in all three shells. Commands such as `$(…)` are not run. Git Bash gets `PATH` converted to its `/c/…` form and back.
+- `envy status`, `envy reload` and `envy open` work in all three shells.
+- Windows PowerShell only runs profile scripts when your execution policy allows it. If it doesn't, Shell Integration offers to set it to `RemoteSigned` for your account.
+- Closing the window keeps Envy in the notification area; right-click its icon to switch Global or a project on or off. Quit from there too.
+
+<details>
+<summary><strong>How the Windows hooks work</strong></summary>
+
+Envy writes the hooks and the generated variables for each shell to `%LOCALAPPDATA%\Envy\shell` (`init.ps1`/`vars.ps1`, `init.sh`/`vars.sh`, `init.cmd`/`vars.cmd`). That folder holds your secret values, so only your account can read it, and it never roams to a server. A state stamp tells open shells when to reload. The bookkeeping (`__ENVY_VARS`, `__ENVY_O_<NAME>`) is shared by all three shells, so a Git Bash started from PowerShell, or a Command Prompt started from Git Bash, puts back what its parent set before applying the current set. Disconnecting removes the lines again and keeps `<file>.envy-backup`; uninstalling Envy disconnects every shell.
+</details>
+
 ---
 
 ## 🛠️ Building from Source
+
+### macOS
 
 Requires macOS 15.0+ and Xcode 16+ (Swift 6 toolchain):
 
@@ -113,6 +151,26 @@ To try it without touching your real setup, point it at a sandbox folder. Settin
 open -n --env ENVY_HOME=/tmp/envy-sandbox dist/Envy.app
 ```
 
+
+### Windows
+
+The Windows app lives in [`windows/`](windows). Its core (`Envy.Core`, plain .NET 10 with xUnit tests) builds and tests on any OS; the WinUI 3 app needs Windows to run. With the .NET 10 SDK:
+
+```powershell
+cd windows
+dotnet test --project tests/Envy.Core.Tests      # includes real PowerShell, Git Bash and cmd runs of the hooks
+dotnet publish src/Envy.App -c Release -r win-x64 -p:Platform=x64 -o artifacts/publish
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer\Envy.iss   # artifacts\Envy-Setup.exe
+```
+
+To try it without touching your real setup, start it with `ENVY_HOME` set. Settings, secrets (as a file instead of Credential Manager), shell files, profiles, `.bashrc` and the AutoRun value then all live in that folder:
+
+```powershell
+$env:ENVY_HOME = "$env:TEMP\envy-sandbox"; .\artifacts\publish\Envy.exe
+```
+
+The [Windows workflow](.github/workflows/windows.yml) runs the tests on `windows-latest`, builds the app and the installer, and attaches `Envy-Setup.exe` to every published release. Create the release with the DMG as usual (`gh release create v1.0.2 dist/Envy.dmg …`) and the installer follows a few minutes later; both keep the same file name, so the download links always serve the newest release.
+
 <details>
 <summary><strong>Releasing a new version</strong></summary>
 
@@ -129,7 +187,7 @@ VERSION=1.0.2 scripts/release.sh
 gh release create v1.0.2 dist/Envy.dmg --title "Envy 1.0.2" --generate-notes
 ```
 
-The DMG keeps the same name for every version, so the download links above always serve the newest release. Update `version` and `sha256` in the [Homebrew cask](https://github.com/joeystdio/homebrew-tap/blob/main/Casks/envy.rb) too.
+The DMG keeps the same name for every version, so the download links above always serve the newest release. Update `version` and `sha256` in the [Homebrew cask](https://github.com/joeystdio/homebrew-tap/blob/main/Casks/envy.rb) too. Publishing the release also starts the Windows workflow, which attaches `Envy-Setup.exe`.
 </details>
 
 ---

@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Envy for macOS — Environment Variables & Secrets for Your Terminal and AI Coding Agents</title>
-  <meta name="description" content="Envy is a 100% free, open-source native macOS app that manages environment variables and secrets for your terminal and AI coding agents: global and per-project sets, direnv-style folder loading, one-click on/off, and secrets in the Keychain instead of dotfiles." />
-  <meta name="keywords" content="Envy, macOS environment variables, secrets manager mac, dotenv manager, direnv alternative, zshrc secrets, Keychain, Claude Code, Codex, AI coding agent secrets, open source mac developer tool" />
-  <meta property="og:title" content="Envy for macOS — Environment Variables & Secrets for Your Terminal and AI Coding Agents" />
+  <title>Envy for macOS and Windows — Environment Variables & Secrets for Your Terminal and AI Coding Agents</title>
+  <meta name="description" content="Envy is a 100% free, open-source native app for macOS and Windows that manages environment variables and secrets for your terminal and AI coding agents: global and per-project sets, direnv-style folder loading, one-click on/off, and secrets in the Keychain or Credential Manager instead of dotfiles." />
+  <meta name="keywords" content="Envy, macOS environment variables, Windows environment variables, PowerShell profile secrets, Credential Manager, secrets manager mac, dotenv manager, direnv alternative, zshrc secrets, Keychain, Claude Code, Codex, AI coding agent secrets, open source mac developer tool" />
+  <meta property="og:title" content="Envy for macOS and Windows — Environment Variables & Secrets for Your Terminal and AI Coding Agents" />
   <meta property="og:description" content="Stop pasting API keys into ~/.zshrc. Keep secrets in the Keychain, switch projects on and off in one click, and give every terminal and coding agent exactly what it needs." />
   <meta property="og:url" content="https://joeystdio.github.io/envy/" />
   <meta property="og:image" content="https://joeystdio.github.io/envy/assets/screenshot.png" />
@@ -59,6 +59,7 @@
     .btn:hover { transform: translateY(-2px); }
     .btn-primary { background: linear-gradient(135deg, var(--emerald), var(--green)); color: #04110a; box-shadow: 0 10px 30px rgba(61, 255, 158, 0.25); }
     .btn-secondary { background: rgba(255, 255, 255, 0.07); color: var(--text); border: 1px solid var(--border); }
+    .btn-windows { background: rgba(0, 120, 212, 0.16); color: #cfe6ff; border: 1px solid rgba(0, 120, 212, 0.5); }
     .btn-coffee { background: rgba(255, 221, 0, 0.14); color: var(--gold); border: 1px solid rgba(255, 221, 0, 0.35); }
     .brew-box {
       display: inline-block; max-width: 100%; overflow-x: auto; white-space: nowrap; background: #0b1013; border: 1px solid var(--border);
@@ -70,6 +71,11 @@
     .card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
     .card h3 { font-size: 1.1rem; margin-bottom: 8px; color: #fff; }
     .card p { font-size: 0.94rem; color: var(--muted); }
+    .platform { margin: 0 0 56px; }
+    .platform h2 { font-size: 1.6rem; margin-bottom: 8px; }
+    .platform > p { color: var(--muted); margin-bottom: 20px; max-width: 760px; }
+    .platform .grid { margin: 0; }
+    .note { margin-top: 18px; font-size: 0.92rem; color: var(--muted); }
     footer { text-align: center; border-top: 1px solid var(--border); padding-top: 32px; color: var(--muted); font-size: 0.9rem; }
     footer a { color: var(--green); text-decoration: none; }
   </style>
@@ -79,15 +85,19 @@
     <header>
       <img src="assets/icon.png" alt="Envy Icon" class="app-icon" />
       <br />
-      <span class="badge-pill">macOS 15+ Universal • Apple Notarized • 100% Free & Open Source</span>
-      <h1>Envy for macOS</h1>
+      <span class="badge-pill">macOS 15+ Universal • Windows 10 &amp; 11 • 100% Free & Open Source</span>
+      <h1>Envy for macOS and Windows</h1>
       <p class="subtitle">
-        Stop pasting API keys into <code>~/.zshrc</code>. Envy keeps your environment variables and secrets in one native app,
-        with secrets in the Keychain, and gives every terminal and AI coding agent exactly what it needs for the folder it's in.
+        Stop pasting API keys into <code>~/.zshrc</code> or your PowerShell profile. Envy keeps your environment variables and secrets in one
+        native app, with secrets in the Keychain or Windows Credential Manager, and gives every terminal and AI coding agent exactly what it
+        needs for the folder it's in.
       </p>
       <div class="cta-row">
         <a href="https://github.com/joeystdio/envy/releases/latest/download/Envy.dmg" class="btn btn-primary">
            Download Envy.dmg
+        </a>
+        <a href="https://github.com/joeystdio/envy/releases/latest/download/Envy-Setup.exe" class="btn btn-windows">
+          ⊞ Download for Windows
         </a>
         <a href="https://github.com/joeystdio/envy" class="btn btn-secondary">
           ★ View on GitHub
@@ -128,6 +138,35 @@
         <h3>🧭 Setup Assistant</h3>
         <p>Detects zsh or bash, <code>ZDOTDIR</code> and dotfile symlinks, connects your terminal, verifies a fresh shell, and moves plain-text secrets out of your startup files.</p>
       </div>
+    </section>
+
+    <section class="platform" id="windows">
+      <h2>🪟 Envy on Windows</h2>
+      <p>
+        The same app, native on Windows 10 and 11 (WinUI 3 with Mica, and a tray icon instead of the menu bar). It connects
+        PowerShell 7, Windows PowerShell, Git Bash and Command Prompt, and installs for you only, without admin rights.
+      </p>
+      <div class="grid">
+        <div class="card">
+          <h3>⚡ PowerShell 7 and 5.1</h3>
+          <p>One marked line in your profile wraps the prompt, so a folder's project loads when you <code>cd</code> in and unloads when you leave, like the Mac's zsh hook.</p>
+        </div>
+        <div class="card">
+          <h3>🐚 Git Bash</h3>
+          <p>The same bash hook as on the Mac, with <code>PATH</code> converted between <code>C:\</code> and <code>/c/</code> so it keeps working in both directions.</p>
+        </div>
+        <div class="card">
+          <h3>⌨️ Command Prompt</h3>
+          <p>Chained onto cmd's AutoRun command, after anything already there. cmd has no prompt hook, so it loads once per window; run <code>envy reload</code> after <code>cd</code>.</p>
+        </div>
+        <div class="card">
+          <h3>🔐 Secrets in Credential Manager</h3>
+          <p>Secret values are stored as Windows credentials for your account, and the Setup Assistant moves plain-text secrets out of your profiles and user environment variables.</p>
+        </div>
+      </div>
+      <p class="note">
+        The installer isn't code-signed yet. When Microsoft Defender SmartScreen says it protected your PC, click <strong>More info</strong>, then <strong>Run anyway</strong>.
+      </p>
     </section>
 
     <footer>

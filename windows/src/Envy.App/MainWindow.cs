@@ -44,7 +44,6 @@ public sealed class MainWindow : Window
         titleBar.Children.Add(UI.Row(10,
             new Image { Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Assets", "Envy.ico"))), Width = 16, Height = 16 },
             UI.Text(Title, 12, wrap: false)));
-        SetTitleBar(titleBar);
 
         nav.IsSettingsVisible = false;
         nav.IsBackButtonVisible = NavigationViewBackButtonVisible.Collapsed;
@@ -74,6 +73,7 @@ public sealed class MainWindow : Window
         root.Children.Add(overlay);
         AddShortcuts(root);
         Content = root;
+        SetTitleBar(titleBar);
 
         state.Changed += structural =>
         {

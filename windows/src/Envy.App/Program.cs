@@ -31,9 +31,12 @@ public static class Program
             return 0;
         }
 
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => { if (e.ExceptionObject is Exception ex) App.Log(ex); };
         WinRT.ComWrappersSupport.InitializeComWrappers();
         Application.Start(_ =>
         {
+            // What the XAML compiler's generated code does for an app with App.xaml.
+            Microsoft.UI.Xaml.XamlTypeInfo.XamlControlsXamlMetaDataProvider.Initialize();
             var dispatcher = DispatcherQueue.GetForCurrentThread();
             SynchronizationContext.SetSynchronizationContext(new DispatcherQueueSynchronizationContext(dispatcher));
             var app = new App(args.Contains("--background"));

@@ -33,6 +33,19 @@ public sealed class App : Application, IXamlMetadataProvider
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        try
+        {
+            Launch();
+        }
+        catch (Exception e)
+        {
+            Log(e);
+            throw;
+        }
+    }
+
+    void Launch()
+    {
         Resources.MergedDictionaries.Add(new XamlControlsResources());
         state = new AppState(new EnvyStore(new AppPaths(), Environment.ProcessPath));
         window = new MainWindow(state);
