@@ -22,6 +22,7 @@
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained>true</SelfContained>
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <EnableDefaultPriItems>false</EnableDefaultPriItems>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- Trimming and single-file break WinUI's runtime type lookup. -->
     <PublishTrimmed>false</PublishTrimmed>
@@ -39,5 +40,6 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Assets\Envy.ico" CopyToOutputDirectory="PreserveNewest" />
+    <PRIResource Include="Strings\en-US\Resources.resw" />
   </ItemGroup>
 </Project>
