@@ -136,6 +136,8 @@ public static class Shells
         var stderr = process.StandardError.ReadToEndAsync();
         var stdout = process.StandardOutput.ReadToEnd();
         if (!process.WaitForExit(60_000)) { process.Kill(true); throw new TimeoutException($"{exe} took too long"); }
-        return (stdout + stderr.Result).Replace("\r\n", "\n");
+        // Windows PowerShell reports progress (such as loading modules) as CLIXML on stderr when it's redirected.
+        var errors = stderr.Result.StartsWith("#< CLIXML") ? "" : stderr.Result;
+        return (stdout + errors).Replace("\r\n", "\n");
     }
 }

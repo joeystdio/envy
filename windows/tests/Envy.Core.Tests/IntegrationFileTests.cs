@@ -87,7 +87,7 @@ public class AutoRunTests : TempDirectoryTest
 
         AutoRun.Install(store, Init, backup);
         AutoRun.Install(store, Init, backup);
-        Assert.Equal(@"""C:\clink\clink.bat"" inject --autorun & if exist ""C:\Users\me\AppData\Local\Envy\shell\init.cmd"" call ""C:\Users\me\AppData\Local\Envy\shell\init.cmd""", store.Read());
+        Assert.Equal(@"""C:\clink\clink.bat"" inject --autorun& if exist ""C:\Users\me\AppData\Local\Envy\shell\init.cmd"" call ""C:\Users\me\AppData\Local\Envy\shell\init.cmd""", store.Read());
         Assert.True(AutoRun.IsInstalled(store));
         Assert.Equal(@"""C:\clink\clink.bat"" inject --autorun", File.ReadAllText(backup));
 
@@ -112,7 +112,7 @@ public class AutoRunTests : TempDirectoryTest
         Assert.Equal("a & b", AutoRun.Removed($"a & {AutoRun.Segment(Init)} & b"));
         Assert.Equal("b", AutoRun.Removed($"{AutoRun.Segment(Init)} & b"));
         var moved = AutoRun.Added($"{AutoRun.Segment(@"D:\old\Envy\shell\init.cmd")} & b", Init);
-        Assert.Equal($"b & {AutoRun.Segment(Init)}", moved);
+        Assert.Equal($"b& {AutoRun.Segment(Init)}", moved);
     }
 }
 

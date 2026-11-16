@@ -63,7 +63,7 @@ public sealed class FileAutoRunStore(string path) : IAutoRunStore
 /// </summary>
 public static partial class AutoRun
 {
-    [GeneratedRegex(@"(?:\s*&\s*)?if exist ""([^""]*\\Envy\\shell\\init\.cmd)"" call ""\1""", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"(?:\s*&\s*)?if exist ""([^""]*[\\/]Envy[\\/]shell[\\/]init\.cmd)"" call ""\1""", RegexOptions.IgnoreCase)]
     private static partial Regex SegmentRegex();
 
     [GeneratedRegex(@"^\s*&\s*")]
@@ -77,7 +77,8 @@ public static partial class AutoRun
     public static string Added(string? existing, string initCmd)
     {
         var current = (Removed(existing) ?? "").Trim();
-        return current.Length == 0 ? Segment(initCmd) : $"{current} & {Segment(initCmd)}";
+        // No space before &: in "set A=1 & …" the space would become part of A's value.
+        return current.Length == 0 ? Segment(initCmd) : $"{current}& {Segment(initCmd)}";
     }
 
     /// <summary>The value without Envy's part, or null when nothing else is left.</summary>
