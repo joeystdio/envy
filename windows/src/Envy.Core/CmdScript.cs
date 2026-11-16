@@ -60,7 +60,7 @@ public static class CmdScript
         """.ReplaceLineEndings("\r\n");
 
     /// <summary>The generated vars.cmd. Same order as the other shells; folder projects match the folder cmd starts in.</summary>
-    public static string Vars(EnvConfig config, string? home = null)
+    public static string Vars(EnvConfig config, string? home = null, bool maskSecrets = false)
     {
         var (alwaysOn, scoped) = Scopes.Ordered(config, home);
         var s = new StringBuilder();
@@ -88,13 +88,13 @@ public static class CmdScript
                     s.Append($"@if /i \"%__envy_cd:~0,{prefix.Length}%\"==\"{Escape(prefix)}\" set \"__envy_m=%__envy_m%{n + 1} \"\n");
             }
         }
-        foreach (var p in alwaysOn) s.Append(Block(p, ref label));
+        foreach (var p in alwaysOn) s.Append(Block(p, ref label, maskSecrets));
         for (var n = 0; n < scoped.Count; n++)
         {
             var end = $"envy_p{n + 1}";
             s.Append($"@rem {Comment(scoped[n].Name)}, inside {Comment(string.Join(", ", scoped[n].Folders))}\n");
             s.Append($"@if \"%__envy_m: {n + 1} =%\"==\"%__envy_m%\" goto {end}\n");
-            s.Append(Block(scoped[n], ref label));
+            s.Append(Block(scoped[n], ref label, maskSecrets));
             s.Append($":{end}\n");
         }
         s.Append("@if defined __envy_active set \"__envy_active=%__envy_active:~2%\"\n");
@@ -110,7 +110,7 @@ public static class CmdScript
         return text.ReplaceLineEndings("\r\n");
     }
 
-    static string Block(Project p, ref int label)
+    static string Block(Project p, ref int label, bool maskSecrets)
     {
         var vars = Scopes.Loadable(p);
         if (vars.Count == 0) return "";
@@ -119,7 +119,7 @@ public static class CmdScript
         s.Append($"@set \"__envy_active=%__envy_active%, {Escape(p.Name.Replace("\"", ""))}\"\n");
         foreach (var v in vars)
         {
-            if (SetLine(v) is not { } line)
+            if (SetLine(maskSecrets && v.IsSecret ? v with { Value = "******", Expands = false } : v) is not { } line)
             {
                 s.Append($"@rem {v.Key} is skipped: Command Prompt can't hold this value (more than one line, or a quote in an expanding value).\n");
                 continue;

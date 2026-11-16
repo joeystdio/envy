@@ -1,5 +1,8 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Envy.App/Envy.App.csproj">
+      <Platform Project="x64" />
+    </Project>
     <Project Path="src/Envy.Core/Envy.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">

@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "global": {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "name": "Global",
+    "isEnabled": true,
+    "folders": [],
+    "variables": [
+      { "id": "1a6f1b9e-2c3d-4e5f-8a9b-0c1d2e3f4a01", "key": "OPENAI_API_KEY", "value": "", "isEnabled": true, "isSecret": true, "expands": false, "note": "personal" },
+      { "id": "1a6f1b9e-2c3d-4e5f-8a9b-0c1d2e3f4a02", "key": "ANTHROPIC_API_KEY", "value": "", "isEnabled": true, "isSecret": true, "expands": false, "note": "" },
+      { "id": "1a6f1b9e-2c3d-4e5f-8a9b-0c1d2e3f4a03", "key": "EDITOR", "value": "code --wait", "isEnabled": true, "isSecret": false, "expands": false, "note": "" },
+      { "id": "1a6f1b9e-2c3d-4e5f-8a9b-0c1d2e3f4a04", "key": "TOOLS", "value": "%USERPROFILE%\\tools", "isEnabled": true, "isSecret": false, "expands": true, "note": "" },
+      { "id": "1a6f1b9e-2c3d-4e5f-8a9b-0c1d2e3f4a05", "key": "NODE_OPTIONS", "value": "--max-old-space-size=4096", "isEnabled": false, "isSecret": false, "expands": false, "note": "only for big builds" }
+    ]
+  },
+  "projects": [
+    {
+      "id": "2b7a2c0f-3d4e-4f60-9b0c-1d2e3f4a5b01",
+      "name": "shop-api",
+      "isEnabled": true,
+      "folders": ["C:\\code\\shop-api"],
+      "variables": [
+        { "id": "2b7a2c0f-3d4e-4f60-9b0c-1d2e3f4a5b11", "key": "ConnectionStrings__Default", "value": "", "isEnabled": true, "isSecret": true, "expands": false, "note": "local SQL Server" },
+        { "id": "2b7a2c0f-3d4e-4f60-9b0c-1d2e3f4a5b12", "key": "ASPNETCORE_ENVIRONMENT", "value": "Development", "isEnabled": true, "isSecret": false, "expands": false, "note": "" },
+        { "id": "2b7a2c0f-3d4e-4f60-9b0c-1d2e3f4a5b13", "key": "Stripe__ApiKey", "value": "", "isEnabled": true, "isSecret": true, "expands": false, "note": "" }
+      ]
+    },
+    {
+      "id": "2b7a2c0f-3d4e-4f60-9b0c-1d2e3f4a5b02",
+      "name": "web",
+      "isEnabled": true,
+      "folders": ["C:\\code\\web"],
+      "variables": [
+        { "id": "2b7a2c0f-3d4e-4f60-9b0c-1d2e3f4a5b21", "key": "PORT", "value": "3000", "isEnabled": true, "isSecret": false, "expands": false, "note": "" },
+        { "id": "2b7a2c0f-3d4e-4f60-9b0c-1d2e3f4a5b22", "key": "API_URL", "value": "http://localhost:5000", "isEnabled": true, "isSecret": false, "expands": false, "note": "" }
+      ]
+    },
+    {
+      "id": "2b7a2c0f-3d4e-4f60-9b0c-1d2e3f4a5b03",
+      "name": "Azure",
+      "isEnabled": false,
+      "folders": [],
+      "variables": [
+        { "id": "2b7a2c0f-3d4e-4f60-9b0c-1d2e3f4a5b31", "key": "AZURE_SUBSCRIPTION_ID", "value": "00000000-1111-2222-3333-444444444444", "isEnabled": true, "isSecret": false, "expands": false, "note": "" },
+        { "id": "2b7a2c0f-3d4e-4f60-9b0c-1d2e3f4a5b32", "key": "AZURE_CLIENT_SECRET", "value": "", "isEnabled": true, "isSecret": true, "expands": false, "note": "" }
+      ]
+    }
+  ]
+}

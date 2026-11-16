@@ -271,7 +271,7 @@ public sealed class EnvyStore
     // Shell integration
 
     public List<InstalledShell> Shells { get; private set; } = ShellLocator.Find();
-    public Dictionary<ShellKind, ShellInspection?> Inspections { get; } = [];
+    public System.Collections.Concurrent.ConcurrentDictionary<ShellKind, ShellInspection?> Inspections { get; } = [];
 
     public void RefreshShells()
     {
@@ -354,7 +354,7 @@ public sealed class EnvyStore
                 AutoRun.Install(autoRun, Output.CmdInit, Paths.AutoRunBackup);
                 break;
         }
-        Inspections.Remove(kind);
+        Inspections.TryRemove(kind, out _);
         StatusChanged?.Invoke();
     }
 
@@ -369,7 +369,7 @@ public sealed class EnvyStore
                 break;
             default: AutoRun.Uninstall(autoRun, Paths.AutoRunBackup); break;
         }
-        Inspections.Remove(kind);
+        Inspections.TryRemove(kind, out _);
         StatusChanged?.Invoke();
     }
 

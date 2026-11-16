@@ -41,3 +41,78 @@ jobs:
         with:
           name: test-results
           path: windows/TestResults
+
+  app:
+    name: App and installer
+    runs-on: windows-latest
+    needs: test
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Version
+        id: version
+        shell: pwsh
+        run: |
+          $tag = '${{ github.event.release.tag_name }}'
+          if (-not $tag) { $tag = '${{ inputs.tag }}' }
+          $version = if ($tag) { $tag.TrimStart('v') } else { "0.0.${{ github.run_number }}" }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+      - name: Publish the app
+        run: dotnet publish src/Envy.App -c Release -r win-x64 -p:Platform=x64 -p:Version=${{ steps.version.outputs.version }} -o artifacts/publish
+      - name: Start it in a sandbox and take screenshots
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          function Shot($path) {
+            $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+            [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+            $bmp.Save($path)
+          }
+          New-Item -ItemType Directory -Force artifacts/smoke | Out-Null
+          foreach ($run in 'fresh', 'seeded') {
+            $home_ = Join-Path $env:RUNNER_TEMP "envy-$run"
+            if ($run -eq 'seeded') {
+              $settings = Join-Path $home_ 'AppData\Roaming\Envy'
+              New-Item -ItemType Directory -Force $settings | Out-Null
+              Copy-Item installer/sample-config.json (Join-Path $settings 'config.json')
+              New-Item -ItemType File -Force (Join-Path $settings '.onboarded') | Out-Null
+            }
+            $env:ENVY_HOME = $home_
+            $p = Start-Process artifacts/publish/Envy.exe -PassThru
+            Start-Sleep -Seconds 20
+            Shot "artifacts/smoke/$run.png"
+            if ($p.HasExited) { throw "Envy exited with code $($p.ExitCode)" }
+            $init = Join-Path $home_ 'AppData\Local\Envy\shell\init.ps1'
+            if (-not (Test-Path $init)) { throw "Envy didn't write $init" }
+            Stop-Process -Id $p.Id -Force
+            Start-Sleep -Seconds 2
+          }
+          $log = Join-Path $env:LOCALAPPDATA 'Envy\errors.log'
+          if (Test-Path $log) { Get-Content $log; throw 'Envy logged errors' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: windows/artifacts/smoke
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          & $iscc /Qp "/DAppVersion=${{ steps.version.outputs.version }}" installer/Envy.iss
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Envy-Setup
+          path: windows/artifacts/Envy-Setup.exe
+      - name: Attach to the release
+        if: steps.version.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ steps.version.outputs.tag }}" artifacts/Envy-Setup.exe --clobber
