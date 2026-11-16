@@ -77,8 +77,14 @@ public sealed class MainWindow : Window
 
         state.Changed += structural =>
         {
+            if (!structural)
+            {
+                // Typing: only names and counts can have changed, and rebuilding could move the focus.
+                UpdateNavLabels();
+                return;
+            }
             RebuildNav();
-            if (structural && selectedProject is { } id && state.Store.Config.Find(id) is null) Select(Project.GlobalId);
+            if (selectedProject is { } id && state.Store.Config.Find(id) is null) Select(Project.GlobalId);
         };
         state.StatusChanged += UpdateBanner;
         AppWindow.Closing += (_, e) =>
@@ -145,6 +151,7 @@ public sealed class MainWindow : Window
     {
         rebuildingNav = true;
         var config = state.Store.Config;
+        navLabels.Clear();
         nav.MenuItems.Clear();
         nav.MenuItems.Add(ProjectItem(config.Global));
         nav.MenuItems.Add(new NavigationViewItemHeader { Content = "Projects" });
@@ -169,6 +176,18 @@ public sealed class MainWindow : Window
         rebuildingNav = false;
     }
 
+    readonly Dictionary<Guid, (TextBlock Name, TextBlock Subtitle)> navLabels = [];
+
+    void UpdateNavLabels()
+    {
+        foreach (var p in state.Store.Config.Scopes)
+        {
+            if (!navLabels.TryGetValue(p.Id, out var labels)) continue;
+            labels.Name.Text = p.Name;
+            labels.Subtitle.Text = state.Store.Subtitle(p);
+        }
+    }
+
     NavigationViewItem ProjectItem(Project p)
     {
         var toggle = new ToggleSwitch { IsOn = p.IsEnabled, OnContent = null, OffContent = null, MinWidth = 0, Width = 52, Margin = new Thickness(4, 0, 0, 0) };
@@ -176,7 +195,10 @@ public sealed class MainWindow : Window
         var id = p.Id;
         toggle.Toggled += (_, _) => { if (!rebuildingNav) state.Store.SetProjectEnabled(id, toggle.IsOn); };
 
-        var labels = UI.Column(0, UI.Text(p.Name, wrap: false), UI.Text(state.Store.Subtitle(p), 12, UI.Secondary, wrap: false));
+        var name = UI.Text(p.Name, wrap: false);
+        var subtitle = UI.Text(state.Store.Subtitle(p), 12, UI.Secondary, wrap: false);
+        navLabels[id] = (name, subtitle);
+        var labels = UI.Column(0, name, subtitle);
         var row = new Grid();
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
