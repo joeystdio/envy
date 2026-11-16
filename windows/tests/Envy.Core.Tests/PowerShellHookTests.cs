@@ -47,13 +47,13 @@ public class PowerShellHookTests : TempDirectoryTest
         Folder("proj/sub");
         var sibling = Folder("project2");
         Generate(new EnvConfig(projects: [new Project("Proj", folders: [proj], variables: [new EnvVar("FOLDER_ONLY", "yes"), new EnvVar("PRE_EXISTING", "override")])]));
-        // No explicit hook calls: changing location runs it, as cd does at a prompt.
+        // $null = prompt is what showing the next prompt does.
         var script = Show + """
             s FOLDER_ONLY, PRE_EXISTING
-            Set-Location -LiteralPath $env:PROJ; s FOLDER_ONLY, PRE_EXISTING
-            Set-Location sub; s FOLDER_ONLY, PRE_EXISTING
-            Set-Location -LiteralPath $env:SIBLING; s FOLDER_ONLY, PRE_EXISTING
-            Set-Location -LiteralPath ([IO.Path]::GetPathRoot($env:PROJ)); s FOLDER_ONLY, PRE_EXISTING
+            Set-Location -LiteralPath $env:PROJ; $null = prompt; s FOLDER_ONLY, PRE_EXISTING
+            Set-Location sub; $null = prompt; s FOLDER_ONLY, PRE_EXISTING
+            Set-Location -LiteralPath $env:SIBLING; $null = prompt; s FOLDER_ONLY, PRE_EXISTING
+            Set-Location -LiteralPath ([IO.Path]::GetPathRoot($env:PROJ)); $null = prompt; s FOLDER_ONLY, PRE_EXISTING
             """;
         var output = Run(edition, script, new() { ["PROJ"] = proj, ["SIBLING"] = sibling, ["PRE_EXISTING"] = "original" });
         Assert.Equal("unset,original\nyes,override\nyes,override\nunset,original\nunset,original\n", output);
@@ -73,9 +73,9 @@ public class PowerShellHookTests : TempDirectoryTest
             ]));
         var script = """
             $env:FOO
-            Set-Location -LiteralPath $env:A; $env:FOO
-            Set-Location b; $env:FOO
-            Set-Location -LiteralPath ([IO.Path]::GetPathRoot($env:A)); $env:FOO
+            Set-Location -LiteralPath $env:A; $null = prompt; $env:FOO
+            Set-Location b; $null = prompt; $env:FOO
+            Set-Location -LiteralPath ([IO.Path]::GetPathRoot($env:A)); $null = prompt; $env:FOO
             """;
         Assert.Equal("everywhere\nshallow\ndeep\neverywhere\n", Run(edition, script, new() { ["A"] = a }));
     }
@@ -121,6 +121,14 @@ public class PowerShellHookTests : TempDirectoryTest
         var child = $"& '{exe}' -NoLogo -NoProfile -NonInteractive -Command \". (Join-Path `$env:ENVY_DIR 'init.ps1'); (@('FOO','PRE') | ForEach-Object {{ `$v = [Environment]::GetEnvironmentVariable(`$_); if (`$null -eq `$v) {{ 'unset' }} else {{ `$v }} }}) -join ','\"\n";
         var script = Show + "s FOO, PRE\n" + SwapIn(next) + child;
         Assert.Equal("1,override\nunset,orig\n", Run(edition, script, new() { ["PRE"] = "orig" }));
+    }
+
+    [Fact]
+    public void PowerShell7LoadsAFoldersProjectRightOnCd()
+    {
+        var proj = Folder("proj");
+        Generate(new EnvConfig(projects: [new Project("Proj", folders: [proj], variables: [new EnvVar("IN", "yes")])]));
+        Assert.Equal("yes\n", Run("pwsh", "Set-Location -LiteralPath $env:PROJ; $env:IN", new() { ["PROJ"] = proj }));
     }
 
     [Theory, MemberData(nameof(Editions))]

@@ -115,6 +115,11 @@ public static class Shells
         return env;
     }
 
+    /// <summary>The error messages in Windows PowerShell's CLIXML, without its progress records.</summary>
+    static string CliXmlErrors(string xml) => string.Concat(
+        System.Text.RegularExpressions.Regex.Matches(xml, "<S S=\"Error\">(.*?)</S>")
+            .Select(m => System.Net.WebUtility.HtmlDecode(m.Groups[1].Value).Replace("_x000D_", "").Replace("_x000A_", "\n")));
+
     public static string Run(string exe, IEnumerable<string> args, string cwd, Dictionary<string, string> env, bool cmdLine = false)
     {
         var start = new ProcessStartInfo(exe)
@@ -137,7 +142,7 @@ public static class Shells
         var stdout = process.StandardOutput.ReadToEnd();
         if (!process.WaitForExit(60_000)) { process.Kill(true); throw new TimeoutException($"{exe} took too long"); }
         // Windows PowerShell reports progress (such as loading modules) as CLIXML on stderr when it's redirected.
-        var errors = stderr.Result.StartsWith("#< CLIXML") ? "" : stderr.Result;
+        var errors = stderr.Result.StartsWith("#< CLIXML") ? CliXmlErrors(stderr.Result) : stderr.Result;
         return (stdout + errors).Replace("\r\n", "\n");
     }
 }

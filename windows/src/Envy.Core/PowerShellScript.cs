@@ -121,13 +121,18 @@ public static class PowerShellScript
         if (-not $global:__envy_loaded) {
             $global:__envy_loaded = $true
             __envy_wrap_prompt
-            $null = Register-EngineEvent -SourceIdentifier PowerShell.OnIdle -MaxTriggerCount 1 -Action { __envy_wrap_prompt }
-            # Loads a folder's project as soon as you cd into it, not only at the next prompt.
-            $global:__envy_location_action = $ExecutionContext.InvokeCommand.LocationChangedAction
-            $ExecutionContext.InvokeCommand.LocationChangedAction = {
-                param($s, $e)
-                __envy_hook
-                if ($global:__envy_location_action) { & $global:__envy_location_action $s $e }
+            $null = Register-EngineEvent -SourceIdentifier PowerShell.OnIdle -Action {
+                __envy_wrap_prompt
+                Unregister-Event -SubscriptionId $EventSubscriber.SubscriptionId
+            }
+            # PowerShell 7 can load a folder's project as soon as you cd into it, not only at the next prompt.
+            if ($ExecutionContext.InvokeCommand.PSObject.Properties['LocationChangedAction']) {
+                $global:__envy_location_action = $ExecutionContext.InvokeCommand.LocationChangedAction
+                $ExecutionContext.InvokeCommand.LocationChangedAction = {
+                    param($s, $e)
+                    __envy_hook
+                    if ($global:__envy_location_action) { & $global:__envy_location_action $s $e }
+                }
             }
         }
         __envy_hook
