@@ -55,6 +55,7 @@ public static class BashScript
         __envy_sig=""
         __envy_m=""
         __envy_active=""
+        __envy_path_set="${__envy_path_set-}"
         __ENVY_VARS="${__ENVY_VARS-}"
 
         __envy_match() { __envy_m=""; }
@@ -63,6 +64,21 @@ public static class BashScript
         # PATH is a Windows list (C:\a;C:\b) everywhere except inside bash, which uses /c/a:/c/b.
         __envy_winpath() { if command -v cygpath >/dev/null 2>&1; then cygpath -w -p "$1"; else printf '%s' "$1"; fi; }
         __envy_posixpath() { if command -v cygpath >/dev/null 2>&1; then cygpath -u -p "$1"; else printf '%s' "$1"; fi; }
+
+        # The folders of PATH inside Git Bash itself (/mingw64/bin, /usr/bin, …), which only its own startup adds, that $1
+        # lacks, each followed by a colon. Drives (/c/…) and %TEMP% (/tmp/…) are Git for Windows' only other mounts.
+        __envy_own_dirs() {
+          local __envy_l="$PATH" __envy_d __envy_out=""
+          while [ -n "$__envy_l" ]; do
+            case "$__envy_l" in
+              *:*) __envy_d="${__envy_l%%:*}"; __envy_l="${__envy_l#*:}" ;;
+              *) __envy_d="$__envy_l"; __envy_l="" ;;
+            esac
+            case "$__envy_d" in ''|[!/]*|/[A-Za-z]|/[A-Za-z]/*|/tmp|/tmp/*) continue ;; esac
+            case ":$1:$__envy_out" in *":$__envy_d:"*) ;; *) __envy_out="$__envy_out$__envy_d:" ;; esac
+          done
+          printf '%s' "$__envy_out"
+        }
 
         # __envy_set NAME VALUE: export NAME, remembering the value it had before Envy set it.
         __envy_set() {
@@ -79,12 +95,13 @@ public static class BashScript
               __ENVY_VARS="$__ENVY_VARS$1 "
               ;;
           esac
+          if [ "$1" = PATH ]; then __envy_path_set=1; fi
           export "$1=$2"
         }
 
         # Put every variable Envy set back to its earlier value, or unset it.
         __envy_revert() {
-          local __envy_l="$__ENVY_VARS" __envy_n
+          local __envy_l="$__ENVY_VARS" __envy_n __envy_o
           while [ -n "$__envy_l" ]; do
             case "$__envy_l" in
               *" "*) __envy_n="${__envy_l%% *}"; __envy_l="${__envy_l#* }" ;;
@@ -93,7 +110,11 @@ public static class BashScript
             case "$__envy_n" in ''|[0-9]*|*[!A-Za-z0-9_]*) continue ;; esac
             if eval "[ -n \"\${__ENVY_O_$__envy_n+x}\" ]"; then
               if [ "$__envy_n" = PATH ]; then
-                export PATH="$(__envy_posixpath "$__ENVY_O_PATH")"
+                __envy_o="$(__envy_posixpath "$__ENVY_O_PATH")"
+                # Set by the shell this one was started from, whose PATH lacks what Git Bash added in front of it at
+                # startup (/mingw64/bin, /usr/bin): keep those, or ls, cygpath and the rest are gone.
+                if [ -z "$__envy_path_set" ]; then __envy_o="$(__envy_own_dirs "$__envy_o")$__envy_o"; fi
+                export PATH="$__envy_o"
               else
                 eval "export $__envy_n=\"\${__ENVY_O_$__envy_n}\""
               fi
@@ -104,6 +125,7 @@ public static class BashScript
           done
           __ENVY_VARS=""
           __envy_active=""
+          __envy_path_set=""
         }
 
         __envy_hook() {

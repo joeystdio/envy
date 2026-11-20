@@ -110,7 +110,7 @@ public class CrossShellTests : TempDirectoryTest
         File.WriteAllText(childScript, """
             export ENVY_DIR="$(cygpath -u "$ENVY_DIR")"
             . "$ENVY_DIR/init.sh"
-            printf '%s\n' "${PATH%%:*}"
+            [ "${PATH%%:*}" = "$(cygpath -u "$BIN")" ] && echo first
             command -v ls >/dev/null && echo works
             __envy_revert
             case ":$PATH:" in *":$(cygpath -u "$BIN"):"*) echo still ;; *) echo gone ;; esac
@@ -118,8 +118,13 @@ public class CrossShellTests : TempDirectoryTest
 
             """.ReplaceLineEndings("\n"));
         var child = $"& '{bash}' --norc --noprofile '{PathStyle.ToPosix(childScript)}'";
-        var output = Shells.RunPowerShell(pwsh, $"($env:PATH -split ';')[0]\n{child}", ShellDir, Root, new() { ["BIN"] = bin });
-        Assert.Equal($"{bin}\n{PathStyle.ToPosix(bin)}\nworks\ngone\nworks\n", output);
+        // As on a PC where Git for Windows put only its cmd folder on PATH (CI runners have usr\bin there too), so bash
+        // has ls and cygpath only from the folders it adds itself at startup.
+        var git = Path.GetDirectoryName(Path.GetDirectoryName(bash)!)!;
+        var path = string.Join(';', (Environment.GetEnvironmentVariable("PATH") ?? "").Split(';').Where(d =>
+            !d.StartsWith(git + "\\", StringComparison.OrdinalIgnoreCase) || d.TrimEnd('\\').EndsWith("\\cmd", StringComparison.OrdinalIgnoreCase)));
+        var output = Shells.RunPowerShell(pwsh, $"($env:PATH -split ';')[0]\n{child}", ShellDir, Root, new() { ["BIN"] = bin, ["PATH"] = path });
+        Assert.Equal($"{bin}\nfirst\nworks\ngone\nworks\n", output);
     }
 
     [Fact]

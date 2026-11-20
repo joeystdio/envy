@@ -105,15 +105,17 @@ public class BashHookTests : TempDirectoryTest
         // On Windows PATH is a ; list of C:\ paths and Git Bash converts it; elsewhere the value passes through as is.
         var value = OperatingSystem.IsWindows() ? bin + ";%PATH%" : bin + ":$PATH";
         Generate(GlobalOnly(new EnvVar("Path", value, expands: true)));
+        // Converted by bash itself: Git Bash shows folders in %TEMP% as /tmp/….
         var script = """
+            BIN="$(__envy_posixpath "$BIN")"
             envy reload >/dev/null; envy reload >/dev/null
-            printf '%s\n' "${PATH%%:*}"
+            [ "${PATH%%:*}" = "$BIN" ] && echo first
             case ":$PATH:" in *":$BIN:"*":$BIN:"*) echo twice ;; *) echo once ;; esac
             __envy_revert
             case ":$PATH:" in *":$BIN:"*) echo still ;; *) echo gone ;; esac
             command -v ls >/dev/null && echo works
             """;
-        Assert.Equal($"{Shells.ForBash(bin)}\nonce\ngone\nworks\n", Run(script, new() { ["BIN"] = Shells.ForBash(bin) }));
+        Assert.Equal("first\nonce\ngone\nworks\n", Run(script, new() { ["BIN"] = bin }));
     }
 
     [Fact]
