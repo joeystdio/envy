@@ -58,6 +58,17 @@ public class CmdHookTests : TempDirectoryTest
     }
 
     [Fact]
+    public void CommandPromptsStartedTogetherAllLoadTheirVariables()
+    {
+        // cmd seeds %RANDOM% from the clock in seconds, so windows that start together draw the same numbers. Each one
+        // still needs its own copy of vars.cmd, as tools that start several cmd /c at once do.
+        Generate(GlobalOnly(new EnvVar("ENVYT_A", "1")));
+        var outputs = Enumerable.Range(0, 8).AsParallel().WithDegreeOfParallelism(8).Select(_ => Run("@echo %ENVYT_A%\r\n")).ToList();
+        Assert.All(outputs, output => Assert.Equal("1\n", output));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(ShellDir, "run-*"));
+    }
+
+    [Fact]
     public void UndoesWhatTheShellItStartedFromApplied()
     {
         Generate(GlobalOnly(new EnvVar("ENVYT_NEW", "1")));

@@ -18,11 +18,21 @@ public static class CmdScript
         @set "__envy_busy=1"
         @set "__envy_dir={Escape(shellDir)}"
         @if defined ENVY_DIR set "__envy_dir=%ENVY_DIR%"
-        @rem Runs a copy, since cmd rereads a batch file line by line and Envy may replace vars.cmd meanwhile.
-        @set "__envy_run=%__envy_dir%\run-%RANDOM%%RANDOM%.cmd"
-        @copy /y "%__envy_dir%\vars.cmd" "%__envy_run%" >nul 2>&1 && call "%__envy_run%"
-        @del "%__envy_run%" >nul 2>&1
-        @set "__envy_run="
+        @rem Runs a copy, since cmd rereads a batch file line by line and Envy may replace vars.cmd meanwhile. Each window
+        @rem claims its own folder for it: windows that start in the same second draw the same %RANDOM% numbers.
+        @set "__envy_try=0"
+        :envy_claim
+        @set /a "__envy_try+=1"
+        @set "__envy_run=%__envy_dir%\run-%RANDOM%%RANDOM%"
+        @mkdir "%__envy_run%" >nul 2>&1 && goto envy_claimed
+        @if %__envy_try% lss 20 goto envy_claim
+        @call "%__envy_dir%\vars.cmd"
+        @goto envy_ran
+        :envy_claimed
+        @copy /y "%__envy_dir%\vars.cmd" "%__envy_run%\vars.cmd" >nul 2>&1 && call "%__envy_run%\vars.cmd"
+        @rmdir /s /q "%__envy_run%" >nul 2>&1
+        :envy_ran
+        @set "__envy_run=" & set "__envy_try="
         @if /i "%~1"=="reload" goto envy_done
         @rem The envy command, for windows you type in (not for cmd /c).
         @set "__envy_cl=%CMDCMDLINE:"=%"

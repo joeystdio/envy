@@ -66,6 +66,8 @@ public sealed class ShellOutput(string directory, string? appPath = null, string
     {
         try
         {
+            foreach (var folder in System.IO.Directory.EnumerateDirectories(Directory, "run-*"))
+                if (System.IO.Directory.GetLastWriteTimeUtc(folder) < DateTime.UtcNow.AddMinutes(-5)) System.IO.Directory.Delete(folder, recursive: true);
             foreach (var file in System.IO.Directory.EnumerateFiles(Directory, "run-*.cmd"))
                 if (File.GetLastWriteTimeUtc(file) < DateTime.UtcNow.AddMinutes(-5)) File.Delete(file);
             foreach (var file in System.IO.Directory.EnumerateFiles(Directory, ".*.*"))
