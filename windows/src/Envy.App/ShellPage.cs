@@ -88,9 +88,7 @@ public sealed class ShellPage : UserControl
             UI.Row(8,
                 any ? UI.Button("Check Again", state.InspectAll, glyph: UI.Refresh) : UI.Button("Connect All", ConnectAll, accent: true),
                 UI.Button("Setup Assistant…", window.ShowSetupAssistant)));
-        var row = UI.Row(16, UI.Icon(any ? UI.Verified : UI.Warning, 32, any ? UI.Success : UI.Caution), text);
-        row.VerticalAlignment = VerticalAlignment.Top;
-        return UI.CardOf(row, 20);
+        return UI.CardOf(UI.WrapRow(UI.Icon(any ? UI.Verified : UI.Warning, 32, any ? UI.Success : UI.Caution), text, spacing: 16), 20);
     }
 
     void ConnectAll()
@@ -149,16 +147,16 @@ public sealed class ShellPage : UserControl
         if (!state.Store.Inspections.TryGetValue(kind, out var inspection))
             return UI.Row(8, UI.Caption("Not tested yet."), UI.Link("Check", () => state.Inspect(kind)));
         if (inspection is null)
-            return UI.Row(8, UI.Caption($"Couldn't check: {name} took too long to start. Open a new window and run envy status."), UI.Link("Check Again", () => state.Inspect(kind)));
+            return UI.WrapRow(null, UI.Caption($"Couldn't check: {name} took too long to start. Open a new window and run envy status."), UI.Link("Check Again", () => state.Inspect(kind)));
         if (inspection.HookLoaded)
             return UI.Row(8, UI.Icon(UI.Verified, 14, UI.Success), UI.Text($"Verified: a new {name} loads Envy.", 12, UI.Success), UI.Link("Check Again", () => state.Inspect(kind)));
         if (inspection.ScriptsBlocked)
         {
             return UI.Column(6,
-                UI.Row(8, UI.Icon(UI.Warning, 14, UI.Caution), UI.Text($"{name} doesn't run profile scripts here (execution policy {inspection.ExecutionPolicy}), so it can't load Envy.", 12, UI.Caution)),
-                UI.Row(8, UI.Button("Allow My Profile Scripts", () => AllowScripts(kind)), UI.Caption("Sets the policy to RemoteSigned for your account only, as Windows 11's developer settings do.")));
+                UI.WrapRow(UI.Icon(UI.Warning, 14, UI.Caution), UI.Text($"{name} doesn't run profile scripts here (execution policy {inspection.ExecutionPolicy}), so it can't load Envy.", 12, UI.Caution)),
+                UI.WrapRow(UI.Button("Allow My Profile Scripts", () => AllowScripts(kind)), UI.Caption("Sets the policy to RemoteSigned for your account only, as Windows 11's developer settings do.")));
         }
-        return UI.Row(8, UI.Icon(UI.Warning, 14, UI.Caution),
+        return UI.WrapRow(UI.Icon(UI.Warning, 14, UI.Caution),
             UI.Text($"A new {name} didn't load Envy. Something earlier in its startup may stop it, or your terminal starts it without the profile.", 12, UI.Caution),
             UI.Link("Check Again", () => state.Inspect(kind)));
     }

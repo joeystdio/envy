@@ -53,6 +53,44 @@ public static class UI
     }
 
     public static StackPanel Row(double spacing, params UIElement[] children) => Stack(Orientation.Horizontal, spacing, children);
+
+    /// <summary>
+    /// Content that wraps at the width there is, with an optional element before it (an icon or a button) and after it
+    /// (a link). A Row gives its text all the width it asks for, so a long sentence there is cut off instead.
+    /// </summary>
+    public static Grid WrapRow(FrameworkElement? before, FrameworkElement content, FrameworkElement? after = null, double spacing = 8)
+    {
+        var grid = new Grid { ColumnSpacing = spacing };
+        var column = 0;
+        if (before is not null)
+        {
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            if (before is FontIcon or ProgressRing)
+            {
+                // Lined up with the first line of the text.
+                before.VerticalAlignment = VerticalAlignment.Top;
+                before.Margin = new Thickness(0, 3, 0, 0);
+            }
+            else
+            {
+                before.VerticalAlignment = VerticalAlignment.Center;
+                content.VerticalAlignment = VerticalAlignment.Center;
+            }
+            grid.Children.Add(before);
+            column++;
+        }
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        Grid.SetColumn(content, column++);
+        grid.Children.Add(content);
+        if (after is not null)
+        {
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            after.VerticalAlignment = VerticalAlignment.Top;
+            Grid.SetColumn(after, column);
+            grid.Children.Add(after);
+        }
+        return grid;
+    }
     public static StackPanel Column(double spacing, params UIElement[] children) => Stack(Orientation.Vertical, spacing, children);
 
     static StackPanel Stack(Orientation orientation, double spacing, UIElement[] children)
@@ -170,19 +208,23 @@ public static class UI
         return (await picker.PickSaveFileAsync())?.Path;
     }
 
-    /// <summary>A dialog wide enough for tables; ContentDialog is otherwise capped at 548 pixels.</summary>
+    /// <summary>
+    /// A dialog wide enough for tables; ContentDialog is otherwise capped at 548 pixels. Its width covers the content,
+    /// the dialog's padding and the scroll bar's gutter, so nothing at the right edge is cut off.
+    /// </summary>
     public static ContentDialog Dialog(XamlRoot root, string title, UIElement content, double width = 640)
     {
+        const double padding = 48, gutter = 12;
         var dialog = new ContentDialog
         {
             XamlRoot = root,
             Title = title,
-            Content = new ScrollViewer { Content = content, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(0, 0, 12, 0) },
+            Content = new ScrollViewer { Content = content, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(0, 0, gutter, 0) },
             DefaultButton = ContentDialogButton.Primary,
             Style = (Style)Application.Current.Resources["DefaultContentDialogStyle"],
         };
-        dialog.Resources["ContentDialogMaxWidth"] = width + 48;
-        dialog.Resources["ContentDialogMinWidth"] = Math.Min(width, 548) + 48;
+        dialog.Resources["ContentDialogMaxWidth"] = width + padding + gutter;
+        dialog.Resources["ContentDialogMinWidth"] = Math.Min(width, 548) + padding + gutter;
         dialog.Resources["ContentDialogMaxHeight"] = 900.0;
         if (content is FrameworkElement element) element.Width = width;
         return dialog;

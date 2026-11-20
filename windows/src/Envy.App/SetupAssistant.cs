@@ -176,25 +176,25 @@ public sealed class SetupAssistant : Grid
         panel.Children.Add(UI.Code(string.Join("\n", store.Shells.Where(s => s.Kind != ShellKind.Cmd).Select(s => store.ConnectLine(s.Kind)).Distinct()
             .Prepend(StartupFiles.BeginMarker).Append(StartupFiles.EndMarker))));
         panel.Children.Add(UI.Column(6,
-            UI.Row(8, UI.Icon(UI.Document, 14, UI.Secondary), UI.Text("A copy of each file is saved first, as …envy-backup.", color: UI.Secondary)),
-            UI.Row(8, UI.Icon(UI.Close, 14, UI.Secondary), UI.Text("Disconnect any time from Shell Integration.", color: UI.Secondary)),
-            UI.Row(8, UI.Icon(UI.Terminal, 14, UI.Secondary), UI.Text("Command Prompt runs Envy from its AutoRun command, after anything already there. It loads variables when a window opens and doesn't switch per folder.", color: UI.Secondary))));
-        if (connectError is not null) panel.Children.Add(UI.Row(8, UI.Icon(UI.Warning, 14, UI.Critical), UI.Text(connectError, color: UI.Critical)));
+            UI.WrapRow(UI.Icon(UI.Document, 14, UI.Secondary), UI.Text("A copy of each file is saved first, as …envy-backup.", color: UI.Secondary)),
+            UI.WrapRow(UI.Icon(UI.Close, 14, UI.Secondary), UI.Text("Disconnect any time from Shell Integration.", color: UI.Secondary)),
+            UI.WrapRow(UI.Icon(UI.Terminal, 14, UI.Secondary), UI.Text("Command Prompt runs Envy from its AutoRun command, after anything already there. It loads variables when a window opens and doesn't switch per folder.", color: UI.Secondary))));
+        if (connectError is not null) panel.Children.Add(UI.WrapRow(UI.Icon(UI.Warning, 14, UI.Critical), UI.Text(connectError, color: UI.Critical)));
         return panel;
     }
 
     UIElement VerificationLine(InstalledShell shell)
     {
         if (state.Checking.Contains(shell.Kind))
-            return UI.Row(8, new ProgressRing { IsActive = true, Width = 14, Height = 14 }, UI.Text($"Opening a new {shell.Name} to check that it loads Envy…", color: UI.Secondary));
+            return UI.WrapRow(new ProgressRing { IsActive = true, Width = 14, Height = 14 }, UI.Text($"Opening a new {shell.Name} to check that it loads Envy…", color: UI.Secondary));
         if (!state.Store.Inspections.TryGetValue(shell.Kind, out var inspection) || inspection is null)
-            return UI.Row(8, UI.Icon(UI.Info, 14, UI.Secondary), UI.Text($"{shell.Name}: couldn't check. Open a new window and run envy status.", color: UI.Secondary), UI.Link("Check Again", () => state.Inspect(shell.Kind)));
+            return UI.WrapRow(UI.Icon(UI.Info, 14, UI.Secondary), UI.Text($"{shell.Name}: couldn't check. Open a new window and run envy status.", color: UI.Secondary), UI.Link("Check Again", () => state.Inspect(shell.Kind)));
         if (inspection.HookLoaded)
-            return UI.Row(8, UI.Icon(UI.Verified, 14, UI.Success), UI.Text($"Verified: a new {shell.Name} loads Envy.", color: UI.Success));
+            return UI.WrapRow(UI.Icon(UI.Verified, 14, UI.Success), UI.Text($"Verified: a new {shell.Name} loads Envy.", color: UI.Success));
         var reason = inspection.ScriptsBlocked
             ? $"{shell.Name} doesn't run profile scripts (execution policy {inspection.ExecutionPolicy}). Allow them in Shell Integration."
             : $"A new {shell.Name} didn't load Envy.";
-        return UI.Row(8, UI.Icon(UI.Warning, 14, UI.Caution), UI.Text(reason, color: UI.Caution), UI.Link("Check Again", () => state.Inspect(shell.Kind)));
+        return UI.WrapRow(UI.Icon(UI.Warning, 14, UI.Caution), UI.Text(reason, color: UI.Caution), UI.Link("Check Again", () => state.Inspect(shell.Kind)));
     }
 
     FrameworkElement Secrets()
