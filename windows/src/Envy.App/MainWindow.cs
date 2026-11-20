@@ -339,6 +339,8 @@ public sealed class MainWindow : Window
             };
             root.KeyboardAccelerators.Add(accelerator);
         }
+        // Otherwise WinUI shows the first shortcut ("Ctrl+N") as a tooltip wherever the pointer rests in the window.
+        root.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
         var ctrl = VirtualKeyModifiers.Control;
         var ctrlShift = VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift;
         Add(VirtualKey.N, ctrl, () => { if (SelectedProjectId is { } id) _ = Dialogs.EditVariable(state, id, null); });
