@@ -50,7 +50,8 @@ public static class Dialogs
             }
             else
             {
-                var box = new TextBox { Header = "Value", Text = draft.Value, FontFamily = UI.Mono, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MaxHeight = 180 };
+                // AcceptsReturn before Text: a single-line TextBox keeps only the first line of what it's given.
+                var box = new TextBox { Header = "Value", AcceptsReturn = true, Text = draft.Value, FontFamily = UI.Mono, TextWrapping = TextWrapping.Wrap, MaxHeight = 180 };
                 box.TextChanged += (_, _) => draft.Value = box.Text;
                 valueHost.Children.Add(box);
             }
@@ -125,7 +126,8 @@ public static class Dialogs
     public static async Task Import(AppState state, Guid projectId, string text)
     {
         if (state.XamlRoot is not { } root || state.Store.Config.Find(projectId) is not { } project) return;
-        var input = new TextBox { Text = text, AcceptsReturn = true, FontFamily = UI.Mono, Height = 130, TextWrapping = TextWrapping.NoWrap, PlaceholderText = "API_URL=http://localhost:3000\nOPENAI_API_KEY=sk-…" };
+        // AcceptsReturn before Text: a single-line TextBox keeps only the first line of what it's given.
+        var input = new TextBox { AcceptsReturn = true, Text = text, FontFamily = UI.Mono, Height = 130, TextWrapping = TextWrapping.NoWrap, PlaceholderText = "API_URL=http://localhost:3000\nOPENAI_API_KEY=sk-…" };
         ScrollViewer.SetHorizontalScrollBarVisibility(input, ScrollBarVisibility.Auto);
         var replace = new RadioButtons { Header = "If a name already exists:", MaxColumns = 2, Items = { "Replace its value", "Keep the current value" }, SelectedIndex = 0 };
         var detectSecrets = new CheckBox { Content = "Treat names like *_TOKEN, *_SECRET, *_KEY and *PASSWORD* as secrets", IsChecked = true };
