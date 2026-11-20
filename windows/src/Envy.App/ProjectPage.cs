@@ -99,6 +99,9 @@ public sealed class ProjectPage : Grid
     {
         if (Project is not { } p) return;
         updating = true;
+        // The name box is kept across rebuilds, so typing in it keeps the focus. Empty the old details panel first: the
+        // box would otherwise still be its child, and adding it to the new one throws.
+        foreach (var panel in header.Children.OfType<Panel>()) panel.Children.Clear();
         header.Children.Clear();
         header.ColumnDefinitions.Clear();
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
