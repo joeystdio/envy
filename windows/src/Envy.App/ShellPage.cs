@@ -168,9 +168,11 @@ public sealed class ShellPage : UserControl
         if (state.Store.Shells.FirstOrDefault(s => s.Kind == kind) is not { } shell) return;
         try
         {
-            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(shell.Executable,
+            var start = new System.Diagnostics.ProcessStartInfo(shell.Executable,
                 "-NoLogo -NoProfile -NonInteractive -Command Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force")
-            { CreateNoWindow = true, UseShellExecute = false });
+            { CreateNoWindow = true, UseShellExecute = false };
+            ShellProbe.UseDefaultModulePath(start, kind);
+            using var process = System.Diagnostics.Process.Start(start);
             process?.WaitForExit(15000);
         }
         catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException) { App.Log(e); }

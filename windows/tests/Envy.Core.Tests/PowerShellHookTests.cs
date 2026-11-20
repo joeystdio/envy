@@ -170,6 +170,7 @@ public class PowerShellHookTests : TempDirectoryTest
         StartupFiles.Install(profile, StartupFiles.PowerShellLine(PowerShellScript.Quoted(Path.Combine(ShellDir, "init.ps1"))), preferCrLf: true);
         var inspection = ShellProbe.Inspect(shell, profile)!;
         Assert.True(inspection.HookLoaded);
-        Assert.NotNull(inspection.ExecutionPolicy);
+        // A policy name, also when this test runs from PowerShell 7, whose module path Windows PowerShell can't use.
+        Assert.Matches("^(Restricted|AllSigned|RemoteSigned|Unrestricted|Bypass|Undefined|Default)$", inspection.ExecutionPolicy);
     }
 }

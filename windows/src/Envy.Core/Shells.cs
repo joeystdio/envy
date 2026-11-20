@@ -127,7 +127,7 @@ public static class ShellProbe
                 var args = new List<string> { "-NoLogo", "-NonInteractive" };
                 if (profile is not null) args.Add("-NoProfile");
                 args.AddRange(["-EncodedCommand", Convert.ToBase64String(Encoding.Unicode.GetBytes(script))]);
-                return Parse(Run(shell.Executable, args, null, timeout));
+                return Parse(Run(shell, args, null, timeout));
             }
             case ShellKind.GitBash:
             {
@@ -137,16 +137,26 @@ public static class ShellProbe
                     :
                     """;
                 var env = home is null ? null : new Dictionary<string, string> { ["HOME"] = home };
-                return Parse(Run(shell.Executable, ["--login", "-i", "-c", script], env, timeout, posixOut: true));
+                return Parse(Run(shell, ["--login", "-i", "-c", script], env, timeout, posixOut: true));
             }
             default:
             {
                 // AutoRun runs before the /c command, so its variables are there; without it Envy isn't.
                 var check = "if defined __envy_dir (echo hook:yes> \"%ENVY_PROBE_OUT%\") else (echo hook:no> \"%ENVY_PROBE_OUT%\")";
                 var args = autoRun is null ? new List<string> { "/c", check } : ["/d", "/c", autoRun + " & " + check];
-                return Parse(Run(shell.Executable, args, null, timeout, cmdLine: true));
+                return Parse(Run(shell, args, null, timeout, cmdLine: true));
             }
         }
+    }
+
+    /// <summary>
+    /// Leaves PSModulePath out for Windows PowerShell. Envy started from PowerShell 7 (by envy open, say) inherits its
+    /// module path, with which Windows PowerShell can't load its own modules, so Get-ExecutionPolicy and
+    /// Set-ExecutionPolicy fail. Without the variable it builds its default path, as a new window does.
+    /// </summary>
+    public static void UseDefaultModulePath(ProcessStartInfo start, ShellKind kind)
+    {
+        if (kind == ShellKind.WindowsPowerShell) start.Environment.Remove("PSModulePath");
     }
 
     static ShellInspection? Parse(string? output)
@@ -165,13 +175,13 @@ public static class ShellProbe
     /// Runs the shell with output going to a file rather than a pipe: startup files often print banners, and a
     /// background job they start could keep a pipe open long after the shell exits.
     /// </summary>
-    static string? Run(string executable, List<string> args, Dictionary<string, string>? env, TimeSpan? timeout, bool posixOut = false, bool cmdLine = false)
+    static string? Run(InstalledShell shell, List<string> args, Dictionary<string, string>? env, TimeSpan? timeout, bool posixOut = false, bool cmdLine = false)
     {
         var outFile = Path.Combine(Path.GetTempPath(), $"envy-probe-{Guid.NewGuid():N}");
         File.WriteAllText(outFile, "");
         try
         {
-            var start = new ProcessStartInfo(executable)
+            var start = new ProcessStartInfo(shell.Executable)
             {
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -185,6 +195,7 @@ public static class ShellProbe
             foreach (var key in start.Environment.Keys.ToList())
                 if (key.StartsWith("__ENVY", StringComparison.OrdinalIgnoreCase) || key.Equals("ENVY_DIR", StringComparison.OrdinalIgnoreCase))
                     start.Environment.Remove(key);
+            UseDefaultModulePath(start, shell.Kind);
             if (env is not null) foreach (var (k, v) in env) start.Environment[k] = v;
             start.Environment["ENVY_PROBE_OUT"] = posixOut ? PathStyle.ToPosix(outFile) : outFile;
 
