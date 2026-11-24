@@ -46,6 +46,8 @@ public enum CommandSocket {
     public enum Failure: Error, Equatable {
         case pathTooLong
         case notRunning
+        /// The system refused the connection: a sandbox (a coding agent's, say) doesn't allow it.
+        case blocked
         case io(Int32)
     }
 
@@ -73,6 +75,7 @@ public enum CommandSocket {
         }
         guard connected == 0 else {
             if errno == ENOENT || errno == ECONNREFUSED { throw Failure.notRunning }
+            if errno == EPERM || errno == EACCES { throw Failure.blocked }
             throw Failure.io(errno)
         }
         setTimeout(fd, timeout)

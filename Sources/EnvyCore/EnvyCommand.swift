@@ -175,6 +175,14 @@ public enum EnvyCommand: Equatable, Sendable {
         return (full as NSString).standardizingPath
     }
 
+    /// Commands that only read, so they can also run from the settings file when the app can't be reached.
+    public var isReadOnly: Bool {
+        switch self {
+        case .help, .status, .list: return true
+        default: return false
+        }
+    }
+
     // MARK: Running
 
     /// What the caller's process knows that the app doesn't.
@@ -484,6 +492,8 @@ public enum EnvyCommand: Equatable, Sendable {
         into the chat. Run envy add NAME --secret and let the user paste it into Envy.
       - Prefer Envy over creating .env files or adding exports to ~/.zshrc. Found a .env? Offer envy import.
       - Ask the user before removing variables or switching things off.
+      - If envy says a sandbox blocks it, run the same command again with permission to run outside the
+        sandbox, or ask the user to run it. envy status and envy list still work from inside one.
     """
 }
 

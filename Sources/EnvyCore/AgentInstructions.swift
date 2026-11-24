@@ -103,6 +103,7 @@ public enum AgentInstructions {
     - Never print secret values: no `echo` of secret variables, no unfiltered `env` or `printenv`, and don't \
     read `~/.config/envy/vars.sh`.
     - Ask the user before removing variables or switching anything off.
+    - If `envy` says a sandbox blocks it, run the same command again with permission to run outside the sandbox,     or ask the user to run it.
     """
 
     // MARK: Install and remove

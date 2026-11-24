@@ -15,6 +15,9 @@ enum CommandLineTool {
             envy reload is built in; anywhere else, run commands with: envy exec -- <command>
             """)
             return 0
+        case "help", "--help", "-h":
+            print(EnvyCommand.helpText)
+            return 0
         case "--version", "version":
             print("envy \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")")
             return 0
@@ -39,7 +42,7 @@ enum CommandLineTool {
             response = try CommandSocket.send(request, to: socket)
         } catch CommandSocket.Failure.notRunning {
             guard launchApp(paths: paths) else {
-                return fail("Couldn't start Envy. Open it once from your Applications folder.")
+                return offline(request, paths: paths, reason: "Couldn't start Envy. Open it once from your Applications folder.")
             }
             let deadline = Date().addingTimeInterval(20)
             while true {
@@ -52,6 +55,11 @@ enum CommandLineTool {
                     return fail("Envy started but didn't answer. If it's asking for Keychain access, allow it and try again.")
                 }
             }
+        } catch CommandSocket.Failure.blocked {
+            return offline(request, paths: paths, reason: """
+            This process isn't allowed to reach Envy, probably because a coding agent's sandbox blocks it. \
+            Run the same command again with permission to run outside the sandbox, or ask the user to run it.
+            """)
         } catch {
             return fail("Couldn't reach Envy (\(error)).")
         }
@@ -60,6 +68,35 @@ enum CommandLineTool {
         if !response.output.isEmpty { print(response.output) }
         if let error = response.error { FileHandle.standardError.write(Data("envy: \(error)\n".utf8)) }
         return response.exitCode
+    }
+
+    /// When the app can't be reached, reads still work from the settings file, which holds no secret values;
+    /// changes can't, and get `reason` instead.
+    private static func offline(_ request: CommandRequest, paths: AppPaths, reason: String) -> Int32 {
+        let command: EnvyCommand
+        do {
+            command = try EnvyCommand.parse(request.arguments, cwd: request.context.directories.first ?? paths.home.path)
+        } catch {
+            FileHandle.standardError.write(Data("envy: \(error.localizedDescription)\n".utf8))
+            return 2
+        }
+        guard command.isReadOnly,
+              let data = try? Data(contentsOf: paths.configFile),
+              var config = try? JSONDecoder().decode(EnvConfig.self, from: data)
+        else { return fail(reason) }
+        // The file leaves secret values out; a placeholder lists them as secrets rather than as empty.
+        func placeholder(_ vars: inout [EnvVar]) {
+            for i in vars.indices where vars[i].isSecret { vars[i].value = "•" }
+        }
+        placeholder(&config.global.variables)
+        for i in config.projects.indices { placeholder(&config.projects[i].variables) }
+        do {
+            print(try command.run(on: &config, context: request.commandContext).output)
+        } catch {
+            return fail(error.localizedDescription)
+        }
+        FileHandle.standardError.write(Data("envy: read from Envy's settings file, because Envy itself can't be reached from here.\n".utf8))
+        return 0
     }
 
     /// Starts this app in the background, hidden. A sandbox (`ENVY_HOME`) gets its own instance.
