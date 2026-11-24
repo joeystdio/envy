@@ -506,13 +506,14 @@ extension EnvConfig {
     }
 
     static func folder(_ folders: [String], contains directory: String) -> Bool {
-        let dir = directory.hasSuffix("/") ? directory : directory + "/"
+        let dirs = Set([directory, ShellScript.realPath(directory)].map { $0.hasSuffix("/") ? $0 : $0 + "/" })
         for folder in folders {
             let expanded = (folder as NSString).expandingTildeInPath
-            for path in [expanded, URL(fileURLWithPath: expanded).resolvingSymlinksInPath().path] {
+            for path in [expanded, ShellScript.realPath(expanded)] {
                 var p = path
                 while p.count > 1, p.hasSuffix("/") { p.removeLast() }
-                if dir.hasPrefix(p == "/" ? "/" : p + "/") { return true }
+                let prefix = p == "/" ? "/" : p + "/"
+                if dirs.contains(where: { $0.hasPrefix(prefix) }) { return true }
             }
         }
         return false

@@ -253,5 +253,17 @@ final class ShellIntegrationTests: XCTestCase {
             XCTAssertTrue(out.contains("Envy: Global"), "\(shell): status stays in the shell: \(out)")
             XCTAssertTrue(out.contains("app:--cli set B=2 --global\n"), "\(shell): child processes find it on PATH: \(out)")
         }
+
+        // A copy of the functions without the variables, the way some tools snapshot a shell.
+        for shell in shells {
+            let out = try run(shell, """
+            . "$ENVY_DIR/init.sh"
+            unset __envy_dir __envy_gen __envy_sig __envy_active
+            envy list
+            envy
+            """)
+            XCTAssertTrue(out.contains("app:--cli list\n"), "\(shell): \(out)")
+            XCTAssertTrue(out.contains("app:--cli status\n"), "\(shell): \(out)")
+        }
     }
 }

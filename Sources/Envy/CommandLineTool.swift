@@ -81,7 +81,7 @@ enum CommandLineTool {
         let physical = FileManager.default.currentDirectoryPath
         var out: [String] = []
         if let pwd = env["PWD"], pwd.hasPrefix("/"),
-           URL(fileURLWithPath: pwd).resolvingSymlinksInPath().path == URL(fileURLWithPath: physical).resolvingSymlinksInPath().path {
+           ShellScript.realPath(pwd) == ShellScript.realPath(physical) {
             out.append(pwd)
         }
         if !out.contains(physical) { out.append(physical) }

@@ -73,6 +73,7 @@ public enum ShellScript {
 
     __envy_hook() {
       local __envy_rc=$? __envy_g=""
+      : "${__envy_dir:=${ENVY_DIR:-$HOME/.config/envy}}"
       if [ -r "$__envy_dir/state" ]; then
         IFS= read -r __envy_g < "$__envy_dir/state" || :
       fi
@@ -93,9 +94,13 @@ public enum ShellScript {
     }
 
     # "function envy" rather than "envy()" so an existing alias named envy can't break the definition in zsh.
+    # Some tools copy shell functions into their own shells without these variables or the hook having run
+    # (Claude Code's shell snapshots, for one); there, everything goes to the envy command.
     function envy {
+      : "${__envy_dir:=${ENVY_DIR:-$HOME/.config/envy}}"
       case "${1:-status}" in
         status)
+          if [ -z "${__envy_gen-}" ] && [ -x "$__envy_dir/bin/envy" ]; then "$__envy_dir/bin/envy" status; return; fi
           printf 'Envy: %s\n' "${__envy_active:-nothing loaded here}"
           if [ -n "$__ENVY_VARS" ]; then printf 'Variables: %s\n' "${__ENVY_VARS% }"; fi
           ;;
@@ -215,7 +220,7 @@ public enum ShellScript {
         var seen = Set<String>(), out: [String] = []
         for folder in folders {
             let expanded = (folder as NSString).expandingTildeInPath
-            for path in [expanded, URL(fileURLWithPath: expanded).resolvingSymlinksInPath().path] {
+            for path in [expanded, realPath(expanded)] {
                 var p = path
                 while p.count > 1, p.hasSuffix("/") { p.removeLast() }
                 let prefix = p == "/" ? "/" : p + "/"
@@ -223,6 +228,14 @@ public enum ShellScript {
             }
         }
         return out
+    }
+
+    /// The path with symlinks resolved by the system, keeping `/private` (Foundation's resolving drops it, so
+    /// `/tmp` and `/private/tmp` would never meet). The path itself when it doesn't exist.
+    public static func realPath(_ path: String) -> String {
+        guard let resolved = realpath(path, nil) else { return path }
+        defer { free(resolved) }
+        return String(cString: resolved)
     }
 
     static func depth(_ p: Project) -> Int {

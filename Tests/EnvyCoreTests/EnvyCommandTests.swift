@@ -150,6 +150,18 @@ final class EnvyCommandTests: XCTestCase {
         XCTAssertTrue(stale.contains("envy exec"), stale)
     }
 
+    func testTmpAndPrivateTmpAreTheSameFolder() throws {
+        let real = "/private/tmp/envy-cmd-\(UUID().uuidString.prefix(8))"
+        try FileManager.default.createDirectory(atPath: real + "/src", withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: real) }
+        let viaLink = real.replacingOccurrences(of: "/private/tmp", with: "/tmp")
+        for (linked, cwd) in [(viaLink, real + "/src"), (real, viaLink + "/src")] {
+            var cfg = EnvConfig()
+            cfg.projects = [Project(name: "p", folders: [linked])]
+            XCTAssertEqual(cfg.folderProjects(containing: [cwd]).map(\.name), ["p"], "\(linked) vs \(cwd)")
+        }
+    }
+
     func testFolderMatchingIsByWholeFolder() {
         let cfg = config()
         XCTAssertEqual(cfg.folderProjects(containing: [repo]).map(\.name), ["api"])
