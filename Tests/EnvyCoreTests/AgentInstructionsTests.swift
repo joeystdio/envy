@@ -72,6 +72,16 @@ final class AgentInstructionsTests: XCTestCase {
         XCTAssertEqual(target("claude", env: ["CLAUDE_CONFIG_DIR": "/tmp/cc"]).file.path, "/tmp/cc/rules/envy.md")
     }
 
+    func testInstructionsHaveNoStrayWhitespace() {
+        for kind in [AgentTarget.Kind.rule, .skill] {
+            let text = AgentInstructions.content(for: kind)
+            for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
+                XCTAssertFalse(line.contains("  "), "double space in: \(line)")
+                XCTAssertFalse(line.hasSuffix(" "), "trailing space in: \(line)")
+            }
+        }
+    }
+
     func testInstructionsMentionOnlyRealCommands() throws {
         // Every `envy …` the instructions suggest must parse.
         let text = AgentInstructions.content(for: .rule) + AgentInstructions.content(for: .skill)
