@@ -12,6 +12,8 @@ enum AppSheet: Identifiable {
     case scanProjects
     case newProject
     case addVariable(UUID)
+    /// A secret the envy command asked the user to paste.
+    case pasteSecret(UUID, String)
     case editVariable(UUID, UUID)
     case importEnv(UUID, String)
     case copyFrom(UUID)
@@ -22,6 +24,7 @@ enum AppSheet: Identifiable {
         case .scanProjects: "scan-projects"
         case .newProject: "new-project"
         case .addVariable(let p): "add-\(p)"
+        case .pasteSecret(let p, let key): "paste-\(p)-\(key)"
         case .editVariable(let p, let v): "edit-\(p)-\(v)"
         case .importEnv(let p, _): "import-\(p)"
         case .copyFrom(let p): "copy-\(p)"
@@ -44,7 +47,11 @@ final class Store {
     private(set) var lastWrite: Date?
     private(set) var installed: [RcTarget: Bool] = [:]
     private(set) var environment = ShellEnvironment(shellPath: ShellEnvironment.loginShellPath())
-    private(set) var inspection = Inspection.notChecked
+    private(set) var inspection = Inspection.notChecked {
+        didSet { refreshAgents() }
+    }
+    private(set) var agentTargets: [AgentTarget] = []
+    private(set) var agentStatus: [String: AgentInstructions.Status] = [:]
 
     /// The result of opening a fresh terminal shell in the background.
     enum Inspection: Equatable {
@@ -59,6 +66,9 @@ final class Store {
     @ObservationIgnored private let vault: SecretVault
     @ObservationIgnored private var savedSecrets: [String: String] = [:]
     @ObservationIgnored private var saveTask: Task<Void, Never>?
+    @ObservationIgnored private var commandServer: CommandSocket.Server?
+    /// Opens the main window; set by the window's view, since only views can open windows.
+    @ObservationIgnored var showWindow: (() -> Void)?
 
     init(paths: AppPaths = AppPaths()) {
         let vault = paths.vault
@@ -87,13 +97,19 @@ final class Store {
         secretsLocked = locked
         problem = startupProblem
         refreshInstallStatus()
+        refreshAgents()
 
         NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.saveNow() }
+            MainActor.assumeIsolated {
+                self?.saveNow()
+                self?.commandServer?.stop()
+            }
         }
         // Brings the generated files up to date, e.g. after an app update changed the hook.
         if startupProblem == nil { saveNow() }
+        startCommandServer()
 
+        updateOutdatedInstructions()
         Task {
             await detectEnvironment()
             if !isShellInstalled && !hasOnboarded && activeSheet == nil { activeSheet = .onboarding }
@@ -122,12 +138,21 @@ final class Store {
                 try vault.save(secrets)
                 savedSecrets = secrets
             }
-            try ShellOutput(directory: paths.shellDirectory).write(config)
+            try shellOutput.write(config)
             lastWrite = Date()
             problem = nil
         } catch {
             problem = error.localizedDescription
         }
+    }
+
+    /// The shell files, plus the launcher that puts the envy command on `PATH`.
+    private var shellOutput: ShellOutput {
+        ShellOutput(
+            directory: paths.shellDirectory,
+            executable: Bundle.main.executablePath,
+            environment: paths.isSandbox ? ["ENVY_HOME": paths.home.path] : [:]
+        )
     }
 
     func retrySecrets() {
@@ -160,6 +185,58 @@ final class Store {
         let aside = url.deletingLastPathComponent().appendingPathComponent("config.unreadable.json")
         try? FileManager.default.removeItem(at: aside)
         try? FileManager.default.moveItem(at: url, to: aside)
+    }
+
+    // MARK: The envy command
+
+    private func startCommandServer() {
+        let path = paths.shellDirectory.appendingPathComponent(CommandSocket.fileName).path
+        // The store lives as long as the app, so holding it here is fine.
+        let server = CommandSocket.Server(path: path) { request in await self.handle(request) }
+        do {
+            try FileManager.default.createDirectory(at: paths.shellDirectory, withIntermediateDirectories: true)
+            try server.start()
+            commandServer = server
+        } catch {
+            problem = problem ?? "The envy command can't reach Envy (\(error)). Quit and reopen Envy to try again."
+        }
+    }
+
+    /// Runs one envy command as an undoable change, and writes the shell files right away so the next
+    /// `envy exec` sees it.
+    func handle(_ request: CommandRequest) -> CommandResponse {
+        do {
+            let command = try EnvyCommand.parse(request.arguments, cwd: request.context.directories.first ?? paths.home.path)
+            var updated = config
+            let outcome = try command.run(on: &updated, context: request.commandContext)
+            if let actionName = outcome.actionName, updated != config {
+                guard !secretsLocked else {
+                    return CommandResponse(error: "Envy can't read your secrets from the Keychain, so it can't change anything right now. Open Envy and choose Try Again.", exitCode: 1)
+                }
+                perform(actionName) { $0 = updated }
+                saveNow()
+                if let problem {
+                    return CommandResponse(output: outcome.output, error: "Saved, but terminals won't see it yet: \(problem)", exitCode: 1)
+                }
+            }
+            switch outcome.request {
+            case .pasteSecret(let id, let key)?:
+                selection = .project(id)
+                activeSheet = .pasteSecret(id, key)
+                showWindow?()
+                return CommandResponse(output: outcome.output, activate: true)
+            case .show(let id)?:
+                if let id { selection = .project(id) }
+                showWindow?()
+                return CommandResponse(output: outcome.output, activate: true)
+            case nil:
+                return CommandResponse(output: outcome.output)
+            }
+        } catch let error as EnvyCommand.UsageError {
+            return CommandResponse(error: error.message, exitCode: 2)
+        } catch {
+            return CommandResponse(error: error.localizedDescription, exitCode: 1)
+        }
     }
 
     // MARK: Undoable changes
@@ -407,6 +484,44 @@ final class Store {
     func uninstall(_ target: RcTarget) throws {
         try RcIntegration.uninstall(from: rcURL(target))
         refreshInstallStatus()
+    }
+
+    // MARK: Coding agents
+
+    func refreshAgents() {
+        var folders: [String: String] = [:]
+        if !paths.isSandbox, case .done(let result) = inspection { folders = result.agentFolders }
+        agentTargets = AgentInstructions.targets(home: paths.home, environment: folders)
+        agentStatus = Dictionary(uniqueKeysWithValues: agentTargets.map { ($0.id, AgentInstructions.status(of: $0)) })
+    }
+
+    /// The agents a target reaches that are on the shell's PATH.
+    func foundAgents(_ target: AgentTarget) -> [String] {
+        guard case .done(let result) = inspection else { return [] }
+        return target.agents.map(\.name).filter(result.agents.contains)
+    }
+
+    /// Whether one of the target's agents is on the shell's PATH or has left its settings folder here.
+    func isPresent(_ target: AgentTarget) -> Bool {
+        !foundAgents(target).isEmpty || target.configDirectories.contains { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    var presentAgents: [AgentTarget] { agentTargets.filter(isPresent) }
+
+    func installInstructions(_ agents: [AgentTarget]) throws {
+        defer { refreshAgents() }
+        for agent in agents { try AgentInstructions.install(agent) }
+    }
+
+    func removeInstructions(_ agent: AgentTarget) throws {
+        defer { refreshAgents() }
+        try AgentInstructions.uninstall(agent)
+    }
+
+    /// After an update of Envy, rewrites instructions written by an older version. Never adds new ones.
+    func updateOutdatedInstructions() {
+        for agent in agentTargets where agentStatus[agent.id] == .outdated { try? AgentInstructions.install(agent) }
+        refreshAgents()
     }
 
     // MARK: Setup

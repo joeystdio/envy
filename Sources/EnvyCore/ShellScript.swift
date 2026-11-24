@@ -18,9 +18,16 @@ public enum ShellScript {
     #
     #   envy status   what's loaded in this shell
     #   envy reload   reload right now
-    #   envy open     open the app
+    #   envy help     everything else (the envy command in bin/, which scripts and agents can run too)
 
     __envy_dir="${ENVY_DIR:-$HOME/.config/envy}"
+
+    # The envy command on PATH, so programs started from this shell (coding agents too) can run it.
+    case ":${PATH-}:" in
+      *":$__envy_dir/bin:"*) ;;
+      *) if [ -d "$__envy_dir/bin" ]; then export PATH="$__envy_dir/bin${PATH:+:$PATH}"; fi ;;
+    esac
+
     __envy_gen=""
     __envy_sig=""
     __envy_m=""
@@ -98,8 +105,14 @@ public enum ShellScript {
           __envy_hook
           envy status
           ;;
-        open) open -b dev.envy.Envy ;;
-        *) printf 'usage: envy [status|reload|open]\n' >&2; return 2 ;;
+        *)
+          if [ -x "$__envy_dir/bin/envy" ]; then
+            "$__envy_dir/bin/envy" "$@"
+          else
+            printf 'envy: open Envy.app once to install the envy command\n' >&2
+            return 1
+          fi
+          ;;
       esac
     }
 

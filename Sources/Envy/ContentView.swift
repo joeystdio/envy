@@ -4,6 +4,7 @@ import SwiftUI
 struct ContentView: View {
     @Environment(Store.self) private var store
     @Environment(\.undoManager) private var undoManager
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         @Bindable var store = store
@@ -20,7 +21,10 @@ struct ContentView: View {
         .sheet(item: $store.activeSheet) { sheet in
             sheetView(sheet).environment(store)
         }
-        .onAppear { store.undoManager = undoManager }
+        .onAppear {
+            store.undoManager = undoManager
+            store.showWindow = { openWindow(id: "main") }
+        }
         .onChange(of: undoManager) { _, manager in store.undoManager = manager }
     }
 
@@ -41,6 +45,7 @@ struct ContentView: View {
         case .scanProjects: ProjectScanSheet()
         case .newProject: NewProjectSheet()
         case .addVariable(let project): VariableEditorSheet(projectID: project, variableID: nil)
+        case .pasteSecret(let project, let key): VariableEditorSheet(projectID: project, variableID: nil, template: EnvVar(key: key, isSecret: true), requested: true)
         case .editVariable(let project, let variable): VariableEditorSheet(projectID: project, variableID: variable)
         case .importEnv(let project, let text): ImportSheet(projectID: project, text: text)
         case .copyFrom(let project): CopyFromProjectSheet(targetID: project)

@@ -1,7 +1,16 @@
 import EnvyCore
 import SwiftUI
 
+/// One executable for both: `Envy --cli …` is the `envy` command, anything else starts the app.
 @main
+enum Main {
+    static func main() {
+        let arguments = Array(CommandLine.arguments.dropFirst())
+        if arguments.first == "--cli" { exit(CommandLineTool.run(Array(arguments.dropFirst()))) }
+        EnvyApp.main()
+    }
+}
+
 struct EnvyApp: App {
     @State private var store = Store()
 

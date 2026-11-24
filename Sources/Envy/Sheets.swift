@@ -5,17 +5,24 @@ struct VariableEditorSheet: View {
     let projectID: UUID
     /// nil adds a new variable.
     let variableID: UUID?
+    /// Starting values for a new variable.
+    var template: EnvVar? = nil
+    /// Opened by the envy command on behalf of a coding agent.
+    var requested = false
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var draft = EnvVar(key: "")
     @State private var secretTouched = false
     @State private var reveal = false
     @FocusState private var nameFocused: Bool
+    @FocusState private var valueFocused: Bool
 
     private var isNew: Bool { variableID == nil }
     private var trimmedKey: String { draft.key.trimmingCharacters(in: .whitespaces) }
     private var keyProblem: String? { trimmedKey.isEmpty ? nil : EnvVar.keyProblem(trimmedKey) }
-    private var canSave: Bool { !trimmedKey.isEmpty && keyProblem == nil }
+    /// A requested secret needs its value: the sheet can pop up while the user is typing elsewhere, and a stray
+    /// Return shouldn't save it empty.
+    private var canSave: Bool { !trimmedKey.isEmpty && keyProblem == nil && !(requested && draft.value.isEmpty) }
     private var clashes: Bool {
         store.project(projectID)?.variables.contains { $0.key == trimmedKey && $0.id != variableID } ?? false
     }
@@ -25,6 +32,13 @@ struct VariableEditorSheet: View {
             Text(isNew ? "New Variable in \(store.project(projectID)?.name ?? "")" : "Edit Variable")
                 .font(.headline)
                 .padding([.horizontal, .top], 20)
+            if requested {
+                Label("A command in your terminal asked for \(draft.key). Paste its value here: it goes to your Keychain, and the agent never sees it.", systemImage: "terminal")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding([.horizontal, .top], 20)
+            }
             Form {
                 Section {
                     TextField("Name", text: $draft.key, prompt: Text("OPENAI_API_KEY"))
@@ -43,8 +57,10 @@ struct VariableEditorSheet: View {
                     HStack(alignment: .firstTextBaseline) {
                         if draft.isSecret && !reveal {
                             SecureField("Value", text: $draft.value)
+                                .focused($valueFocused)
                         } else {
                             TextField("Value", text: $draft.value, axis: .vertical)
+                                .focused($valueFocused)
                                 .lineLimit(1...8)
                                 .font(.body.monospaced())
                         }
@@ -72,7 +88,7 @@ struct VariableEditorSheet: View {
                 Spacer()
                 Button("Cancel", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                if isNew {
+                if isNew && !requested {
                     Button("Add & New") {
                         save()
                         draft = EnvVar(key: "")
@@ -95,6 +111,10 @@ struct VariableEditorSheet: View {
             if let variableID, let existing = store.variable(projectID, variableID) {
                 secretTouched = true
                 draft = existing
+            } else if let template {
+                secretTouched = true
+                draft = template
+                valueFocused = true
             } else {
                 nameFocused = true
             }

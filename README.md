@@ -35,11 +35,12 @@
 - **📂 Folder-aware, direnv-style**: Link a project to a folder and its variables load the moment a terminal `cd`s in, and unload when it leaves. Anything they overrode gets its old value back.
 - **🎚️ One-click on/off**: Switch a whole project or a single variable on or off, from the window or the **menu bar**. Open terminals pick it up at their next prompt, no restart needed.
 - **🤖 Built for coding agents**: Claude Code, Codex, Cursor CLI, Gemini CLI, Aider and friends get exactly what's switched on for the folder you start them in, and nothing else.
+- **🧠 Agents know how to use it**: Envy teaches your agents the `envy` command. They check what's loaded, add settings, import a `.env` without seeing its values, and when they need a secret they open Envy for **you** to paste it, instead of asking for it in the chat. Claude Code gets a rule; Codex, Gemini CLI, Cursor, Copilot CLI, opencode, Amp and Goose share one skill in `~/.agents/skills`. Envy only writes its own files, never your instructions.
 - **📥 Import everything**:
   - Scan a whole folder of code at once for `.env`, `.env.local` and `.envrc` files.
   - **.NET**: `appsettings.json`, `appsettings.Development.json` and `dotnet user-secrets`, flattened the way .NET reads them (`ConnectionStrings:Default` → `ConnectionStrings__Default`).
   - Paste or drop `.env` text, copy variables between projects, export back to `.env`.
-- **🧭 Setup Assistant**: Detects your shell (zsh or bash, `ZDOTDIR`, dotfile symlinks) and the coding agents you have installed. It then connects your terminal, checks that a fresh shell loads Envy, and moves plain-text secrets out of your startup files into the Keychain.
+- **🧭 Setup Assistant**: Detects your shell (zsh or bash, `ZDOTDIR`, dotfile symlinks) and the coding agents you have installed. It then connects your terminal, checks that a fresh shell loads Envy, moves plain-text secrets out of your startup files into the Keychain, and teaches your coding agents about Envy.
 
 ---
 
@@ -72,13 +73,20 @@ Envy adds one marked line to `~/.zshrc` (and/or `~/.bashrc`, `~/.bash_profile`).
 
 Later wins: Global, then always-on projects (sidebar order), then folder projects (deepest folder last).
 
-In a terminal:
+In a terminal, or from a script or coding agent:
 
 ```bash
-envy status   # which projects and variables are loaded here
-envy reload   # reload right now
-envy open     # open the app
+envy status                        # what loads here, and whether this process has it
+envy list [PROJECT]                # projects and variables (secret values are never shown)
+envy set PORT=4000                 # add or update a plain variable in this folder's project
+envy add OPENAI_API_KEY --secret   # opens Envy so you can paste the value into the Keychain
+envy import .env                   # move a .env into Envy; secrets go to the Keychain
+envy project add api --folder .    # a project that loads inside this folder
+envy exec -- npm start             # run something with the latest values for this folder
+envy help                          # everything else
 ```
+
+`envy set`, `remove`, `on`/`off` and `import` go to the project linked to the current folder; add `--project NAME` or `--global` for another. Every change goes through the running app (Envy starts in the background if it isn't open), and agents can't read or set secret values: `envy add NAME --secret` asks you. `envy reload` reloads the current terminal right away.
 
 - **🔒 Secret**: stored in the Keychain and masked in the app.
 - **💲 Expand**: the value is evaluated like a double-quoted shell string, so `$HOME/bin:$PATH`, `${OTHER}`, `~` and `$(command)` work. Off by default, so values pass through literally.
@@ -87,7 +95,7 @@ envy open     # open the app
 <details>
 <summary><strong>How the shell hook works</strong></summary>
 
-The line in your startup file sources `~/.config/envy/init.sh`. The app regenerates `~/.config/envy/vars.sh` (mode 600) whenever you change something. At every prompt, and on `cd` in zsh, the hook checks a generation stamp and the current folder. When either changed, it puts back everything it set earlier and applies the current set. New tabs, tmux panes and editor terminals inherit what their parent applied and clean it up correctly.
+The line in your startup file sources `~/.config/envy/init.sh`, which also puts `~/.config/envy/bin` on your `PATH`: the `envy` command there runs the app's own executable and talks to the running app over a private socket (starting it in the background if needed), so agents started from your terminal can use it too. The app regenerates `~/.config/envy/vars.sh` (mode 600) whenever you change something. At every prompt, and on `cd` in zsh, the hook checks a generation stamp and the current folder. When either changed, it puts back everything it set earlier and applies the current set. New tabs, tmux panes and editor terminals inherit what their parent applied and clean it up correctly.
 
 Disconnecting from **Shell Integration** removes the line again; a copy of the previous file is kept as `<file>.envy-backup`.
 </details>
