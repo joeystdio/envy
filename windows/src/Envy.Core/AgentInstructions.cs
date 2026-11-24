@@ -59,11 +59,15 @@ public static class AgentInstructions
     /// <summary>The skill's description decides when an agent loads it, so it names the situations.</summary>
     internal const string Description = "Environment variables and secrets on this PC are managed by Envy. Use this whenever a task needs an environment variable, API key, token, password or connection string; when a command fails because one is missing; or before creating a .env file, running setx, or adding a variable to a PowerShell profile or ~/.bashrc.";
 
-    public static string Content(AgentTarget.Kinds kind) => kind switch
+    /// <summary>
+    /// The file's text, with \n line breaks whatever the source file was checked out with: a multi-line string literal
+    /// takes the source's line breaks, and the status check compares against this.
+    /// </summary>
+    public static string Content(AgentTarget.Kinds kind) => (kind switch
     {
         AgentTarget.Kinds.Rule => $"{Marker}\n\n# Environment variables and secrets: Envy\n\n{Guidance}\n",
         _ => $"---\nname: envy\ndescription: {Description}\n---\n\n{Marker}\n\n# Envy\n\n{Guidance}\n",
-    };
+    }).ReplaceLineEndings("\n");
 
     /// <summary>Short on purpose: envy help is the full reference, so this rarely changes.</summary>
     internal const string Guidance = """

@@ -23,6 +23,8 @@ public class AgentInstructionsTests : TempDirectoryTest
         Assert.StartsWith("---\nname: envy\ndescription: Environment variables", File.ReadAllText(agents.File));
         Assert.StartsWith("<!-- Written by Envy", File.ReadAllText(claude.File));
         Assert.Empty(Directory.EnumerateFiles(Path.GetDirectoryName(claude.File)!, ".*"));
+        // Whatever line endings this source file was checked out with.
+        Assert.DoesNotContain('\r', File.ReadAllText(claude.File) + File.ReadAllText(agents.File));
     }
 
     [Fact]
