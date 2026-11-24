@@ -52,6 +52,7 @@ final class Store {
     }
     private(set) var agentTargets: [AgentTarget] = []
     private(set) var agentStatus: [String: AgentInstructions.Status] = [:]
+    private(set) var agentOfferAnswered = false
 
     /// The result of opening a fresh terminal shell in the background.
     enum Inspection: Equatable {
@@ -98,6 +99,7 @@ final class Store {
         problem = startupProblem
         refreshInstallStatus()
         refreshAgents()
+        agentOfferAnswered = FileManager.default.fileExists(atPath: paths.agentOfferMarker.path)
 
         NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
@@ -516,6 +518,28 @@ final class Store {
     func removeInstructions(_ agent: AgentTarget) throws {
         defer { refreshAgents() }
         try AgentInstructions.uninstall(agent)
+    }
+
+    /// For people who set Envy up before it could teach agents: asks once, while none have instructions.
+    var shouldOfferAgentInstructions: Bool {
+        hasOnboarded && !agentOfferAnswered && !presentAgents.isEmpty
+            && agentTargets.allSatisfy { agentStatus[$0.id] == .notInstalled }
+    }
+
+    func acceptAgentOffer() {
+        do {
+            try installInstructions(presentAgents.filter { agentStatus[$0.id] != .foreign })
+        } catch {
+            problem = error.localizedDescription
+        }
+        dismissAgentOffer()
+    }
+
+    func dismissAgentOffer() {
+        let marker = paths.agentOfferMarker
+        try? FileManager.default.createDirectory(at: marker.deletingLastPathComponent(), withIntermediateDirectories: true)
+        FileManager.default.createFile(atPath: marker.path, contents: nil)
+        agentOfferAnswered = true
     }
 
     /// After an update of Envy, rewrites instructions written by an older version. Never adds new ones.

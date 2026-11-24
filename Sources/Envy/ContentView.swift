@@ -66,6 +66,11 @@ struct StatusBanner: View {
             banner(symbol: "terminal.fill", tint: .orange, text: "Your terminal isn't connected yet, so these variables don't load anywhere.") {
                 Button("Set Up…") { store.activeSheet = .onboarding }
             }
+        } else if store.shouldOfferAgentInstructions {
+            banner(symbol: "sparkles", tint: .accentColor, text: "Teach your coding agents about Envy, so they ask you for secrets here instead of in the chat.") {
+                Button("Not Now") { store.dismissAgentOffer() }
+                Button("Add Instructions") { store.acceptAgentOffer() }
+            }
         }
     }
 

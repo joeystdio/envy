@@ -59,6 +59,8 @@ brew install --cask envy
 
 > Envy is signed with a Developer ID and **notarized by Apple**, so it opens without any Gatekeeper warnings.
 
+**Uninstalling:** in Envy's Shell Integration, disconnect your startup files and remove the coding agent instructions first. `brew uninstall --zap --cask envy` also removes Envy's settings, shell files and agent instructions.
+
 ---
 
 ## 🚀 Using Envy

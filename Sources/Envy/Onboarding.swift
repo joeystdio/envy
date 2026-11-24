@@ -349,6 +349,7 @@ struct OnboardingView: View {
         let picked = store.presentAgents.filter { chosenAgents.contains($0.id) && store.agentStatus[$0.id] != .foreign }
         do {
             try store.installInstructions(picked)
+            store.dismissAgentOffer()
             installedAgents = picked.map(\.name)
             agentError = nil
         } catch {
