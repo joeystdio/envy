@@ -16,9 +16,17 @@ public static class PowerShellScript
         #
         #   envy status   what's loaded in this shell
         #   envy reload   reload right now
-        #   envy open     open the app
+        #   envy help     everything else (the envy command in bin\, which scripts and agents can run too)
 
         $global:__envy_dir = if ($env:ENVY_DIR) { $env:ENVY_DIR } else { {{Quoted(shellDir)}} }
+
+        # The envy command on PATH, so programs started from this shell (coding agents too) can run it.
+        $global:__envy_bin = [IO.Path]::Combine($global:__envy_dir, 'bin')
+        if ([IO.File]::Exists([IO.Path]::Combine($global:__envy_bin, 'envy.exe')) -and
+            (";$env:PATH;").IndexOf(";$($global:__envy_bin);", [StringComparison]::OrdinalIgnoreCase) -lt 0) {
+            $env:PATH = "$($global:__envy_bin);$env:PATH"
+        }
+
         $global:__envy_gen = $null
         $global:__envy_sig = $null
         $global:__envy_active = ''
@@ -87,21 +95,27 @@ public static class PowerShellScript
             }
         }
 
+        # Status and reload are about this shell, so they run here; everything else goes to the envy command. Some tools
+        # copy functions into shells where this hook never ran; there, everything goes to the envy command.
         function global:envy {
-            param([string]$Command = 'status')
-            switch ($Command) {
-                'status' {
-                    "Envy: $(if ($global:__envy_active) { $global:__envy_active } else { 'nothing loaded here' })"
-                    if ($env:__ENVY_VARS) { "Variables: $($env:__ENVY_VARS.TrimEnd())" }
-                }
-                'reload' {
-                    $global:__envy_gen = '(reload)'
-                    $global:__envy_sig = $null
-                    __envy_hook
-                    envy status
-                }
-                'open' { {{(appPath is null ? "[Console]::Error.WriteLine('Envy is not installed here.')" : $"Start-Process -FilePath {Quoted(appPath)}")}} }
-                default { [Console]::Error.WriteLine('usage: envy [status|reload|open]') }
+            $dir = if ($global:__envy_dir) { $global:__envy_dir } elseif ($env:ENVY_DIR) { $env:ENVY_DIR } else { {{Quoted(shellDir)}} }
+            $exe = [IO.Path]::Combine($dir, 'bin', 'envy.exe')
+            $hooked = $null -ne $global:__envy_gen -and (Get-Command __envy_hook -ErrorAction Ignore)
+            $command = if ($args.Count -gt 0) { [string]$args[0] } else { 'status' }
+            if ($hooked -and $command -eq 'status') {
+                "Envy: $(if ($global:__envy_active) { $global:__envy_active } else { 'nothing loaded here' })"
+                if ($env:__ENVY_VARS) { "Variables: $($env:__ENVY_VARS.TrimEnd())" }
+            } elseif ($hooked -and $command -eq 'reload') {
+                $global:__envy_gen = '(reload)'
+                $global:__envy_sig = $null
+                __envy_hook
+                envy status
+            } elseif ([IO.File]::Exists($exe)) {
+                & $exe @args
+            } elseif ($command -eq 'open') {
+                {{(appPath is null ? "[Console]::Error.WriteLine('Envy is not installed here.')" : $"Start-Process -FilePath {Quoted(appPath)}")}}
+            } else {
+                [Console]::Error.WriteLine('envy: open Envy once to install the envy command')
             }
         }
 

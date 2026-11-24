@@ -18,6 +18,15 @@ public static class CmdScript
         @set "__envy_busy=1"
         @set "__envy_dir={Escape(shellDir)}"
         @if defined ENVY_DIR set "__envy_dir=%ENVY_DIR%"
+        @rem The envy command on PATH, so programs started from this window (coding agents too) can run it.
+        @rem (Not with call set: cmd echoes what call runs.)
+        @setlocal EnableDelayedExpansion
+        @set "__envy_p=;!PATH!;"
+        @set "__envy_add="
+        @if "!__envy_p:;%__envy_dir%\bin;=!"=="!__envy_p!" if exist "%__envy_dir%\bin\envy.exe" set "__envy_add=1"
+        @endlocal & set "__envy_add=%__envy_add%"
+        @if defined __envy_add set "PATH=%__envy_dir%\bin;%PATH%"
+        @set "__envy_add="
         @rem Runs a copy, since cmd rereads a batch file line by line and Envy may replace vars.cmd meanwhile. Each window
         @rem claims its own folder for it: windows that start in the same second draw the same %RANDOM% numbers.
         @set "__envy_try=0"
@@ -47,13 +56,17 @@ public static class CmdScript
         @rem The envy command for Command Prompt. Written by Envy; local changes are overwritten.
         @rem   envy status   what's loaded in this window
         @rem   envy reload   load again for the current folder
-        @rem   envy open     open the app
+        @rem   envy help     everything else (the envy command in bin\, which scripts and agents can run too)
         @if "%~1"=="" goto envy_status
         @if /i "%~1"=="status" goto envy_status
         @if /i "%~1"=="reload" goto envy_reload
+        @if exist "%~dp0bin\envy.exe" goto envy_command
         @if /i "%~1"=="open" goto envy_open
-        @echo usage: envy [status^|reload^|open] 1>&2
-        @exit /b 2
+        @echo envy: open Envy once to install the envy command 1>&2
+        @exit /b 1
+        :envy_command
+        @"%~dp0bin\envy.exe" %*
+        @exit /b
         :envy_status
         @setlocal EnableDelayedExpansion
         @if defined __envy_active (echo(Envy: !__envy_active!) else echo(Envy: nothing loaded here

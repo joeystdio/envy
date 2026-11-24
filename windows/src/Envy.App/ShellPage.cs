@@ -4,7 +4,10 @@ using Microsoft.UI.Xaml.Controls;
 
 namespace Envy.App;
 
-/// <summary>Shell Integration: which shells load Envy, a check in a fresh shell, the envy command, and the generated files.</summary>
+/// <summary>
+/// Shell Integration: which shells load Envy, a check in a fresh shell, instructions for coding agents, the envy command,
+/// and the generated files.
+/// </summary>
 public sealed class ShellPage : UserControl
 {
     readonly AppState state;
@@ -40,15 +43,20 @@ public sealed class ShellPage : UserControl
 
         body.Children.Add(UI.Subtitle("Coding agents"));
         var agents = state.Agents;
-        body.Children.Add(UI.CardOf(UI.Text(state.Checking.Count > 0 && agents.Count == 0 ? "Looking…"
-            : agents.Count == 0 ? "None found on the PATH of your shells." : UI.JoinList(agents) + " get what's switched on for the folder you start them in.")));
+        var agentCard = UI.Column(14, UI.Text(state.Checking.Count > 0 && agents.Count == 0 ? "Looking for agents on your shells' PATH…"
+            : agents.Count == 0 ? "None found on the PATH of your shells." : UI.JoinList(agents) + " get what's switched on for the folder you start them in."));
+        foreach (var target in store.AgentTargets) agentCard.Children.Add(AgentRow(target));
+        agentCard.Children.Add(UI.Caption("Teaches agents the envy command: where your variables come from, how to ask you for a secret without seeing it, and how to load a change. Claude Code reads it as a rule in every session; the other agents share one skill folder and load it when a task needs it. Envy writes only these files, never your own instructions."));
+        body.Children.Add(UI.CardOf(agentCard));
 
         body.Children.Add(UI.Subtitle("In a shell"));
         body.Children.Add(UI.CardOf(UI.Column(10,
             CommandLine("See what's loaded here", "envy status"),
             CommandLine("Reload right now", "envy reload"),
-            CommandLine("Open this app", "envy open"),
-            UI.Caption("Works in PowerShell, Git Bash and Command Prompt."))));
+            CommandLine("Everything else", "envy help"),
+            UI.Caption(File.Exists(store.Output.Command)
+                ? $"Works in PowerShell, Git Bash and Command Prompt. Programs started from a connected shell, coding agents included, can run envy too: it's {store.Paths.Abbreviate(store.Output.Command)}, which connected shells put on PATH."
+                : "Works in PowerShell, Git Bash and Command Prompt."))));
 
         body.Children.Add(UI.Subtitle("Generated files"));
         var preview = new ComboBox { Items = { "PowerShell (vars.ps1)", "Git Bash (vars.sh)", "Command Prompt (vars.cmd)" }, SelectedIndex = previewShell, MinWidth = 260 };
@@ -175,6 +183,57 @@ public sealed class ShellPage : UserControl
         }
         catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException) { App.Log(e); }
         state.Inspect(kind);
+    }
+
+    UIElement AgentRow(AgentTarget target)
+    {
+        var store = state.Store;
+        var status = AgentInstructions.Status(target);
+        var present = store.IsPresent(target);
+        var grid = new Grid { ColumnSpacing = 12 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var (glyph, color) = status switch
+        {
+            AgentInstructionStatus.Installed => (UI.Verified, UI.Success),
+            AgentInstructionStatus.Outdated => (UI.Refresh, UI.Caution),
+            _ => (UI.Sparkle, UI.Secondary),
+        };
+        var icon = UI.Icon(glyph, 20, color);
+        icon.VerticalAlignment = VerticalAlignment.Top;
+        grid.Children.Add(icon);
+
+        var details = UI.Column(2, UI.Text(target.Name, bold: true));
+        if (target.Agents.Length > 1) details.Children.Add(UI.Caption(UI.JoinList(target.Agents.Select(a => a.Name).ToList())));
+        var where = present || status != AgentInstructionStatus.NotInstalled ? store.Paths.Abbreviate(target.File) : "Not found on this PC";
+        var path = UI.Text(where, 12, UI.Secondary, mono: true);
+        path.IsTextSelectionEnabled = true;
+        details.Children.Add(path);
+        if (status == AgentInstructionStatus.Outdated) details.Children.Add(UI.Caption("Written by an older Envy.", UI.Caution));
+        if (status == AgentInstructionStatus.Foreign) details.Children.Add(UI.Caption("A file Envy didn't write is already there, so Envy leaves it alone.", UI.Caution));
+        Grid.SetColumn(details, 1);
+        grid.Children.Add(details);
+
+        var actions = UI.Row(8);
+        switch (status)
+        {
+            case AgentInstructionStatus.Installed:
+                actions.Children.Add(UI.Button("Remove", () => Attempt(() => store.RemoveInstructions(target))));
+                break;
+            case AgentInstructionStatus.Outdated:
+                actions.Children.Add(UI.Button("Remove", () => Attempt(() => store.RemoveInstructions(target))));
+                actions.Children.Add(UI.Button("Update", () => Attempt(() => store.InstallInstructions([target])), accent: true));
+                break;
+            case AgentInstructionStatus.NotInstalled when present:
+                actions.Children.Add(UI.Button("Install", () => Attempt(() => store.InstallInstructions([target])), accent: true));
+                break;
+        }
+        actions.VerticalAlignment = VerticalAlignment.Top;
+        Grid.SetColumn(actions, 2);
+        grid.Children.Add(actions);
+        return grid;
     }
 
     static UIElement CommandLine(string label, string command)

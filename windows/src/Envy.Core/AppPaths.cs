@@ -39,6 +39,8 @@ public sealed class AppPaths
     public string ConfigFile => Path.Combine(SettingsDirectory, "config.json");
     /// <summary>Exists once the Setup Assistant has been finished or postponed.</summary>
     public string OnboardedMarker => Path.Combine(SettingsDirectory, ".onboarded");
+    /// <summary>Exists once you've answered the offer to teach coding agents about Envy.</summary>
+    public string AgentOfferMarker => Path.Combine(SettingsDirectory, ".agents-offered");
     /// <summary>A copy of the AutoRun value before Envy last changed it.</summary>
     public string AutoRunBackup => Path.Combine(SettingsDirectory, "AutoRun.envy-backup");
 
@@ -47,6 +49,17 @@ public sealed class AppPaths
     /// in a folder only you can read.
     /// </summary>
     public string ShellDirectory => Path.Combine(LocalAppData, "Envy", "shell");
+
+    /// <summary>The envy command (envy.exe and envy.json), which the shell hooks put on PATH.</summary>
+    public string CommandDirectory => Path.Combine(ShellDirectory, "bin");
+
+    /// <summary>Where the app's own copy of the envy command lives: cli\ next to Envy.exe.</summary>
+    public static string? BundledCommandDirectory(string? appPath)
+    {
+        if (appPath is null || Path.GetDirectoryName(appPath) is not { } folder) return null;
+        var cli = Path.Combine(folder, "cli");
+        return File.Exists(Path.Combine(cli, "envy.exe")) ? cli : null;
+    }
 
     public ISecretVault Vault => IsSandbox || !OperatingSystem.IsWindows()
         ? new FileSecretVault(Path.Combine(SettingsDirectory, "secrets.json"))

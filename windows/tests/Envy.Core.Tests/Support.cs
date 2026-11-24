@@ -40,6 +40,15 @@ public abstract class TempDirectoryTest : IDisposable
     protected static EnvConfig GlobalOnly(params EnvVar[] vars) => new(new Project("Global", variables: vars, id: Project.GlobalId));
 }
 
+/// <summary>For tests of Windows-only behaviour (drive-letter paths, named pipes, PATHEXT).</summary>
+public static class WindowsOnly
+{
+    public static void Check()
+    {
+        if (!OperatingSystem.IsWindows()) Assert.Skip("Windows only.");
+    }
+}
+
 /// <summary>Runs real shells: bash (Git Bash on Windows), PowerShell 7, Windows PowerShell and cmd.</summary>
 public static class Shells
 {

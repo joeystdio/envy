@@ -25,10 +25,12 @@ public sealed class EnvyStore
     readonly List<(string Name, EnvConfig Snapshot)> undo = [];
     readonly List<(string Name, EnvConfig Snapshot)> redo = [];
 
-    public EnvyStore(AppPaths paths, string? appPath = null, ISecretVault? vault = null, IAutoRunStore? autoRun = null)
+    /// <param name="commandSource">The folder holding the app's envy.exe, installed into the shell folder's bin\.</param>
+    public EnvyStore(AppPaths paths, string? appPath = null, ISecretVault? vault = null, IAutoRunStore? autoRun = null, string? commandSource = null)
     {
         Paths = paths;
         AppPath = appPath;
+        CommandSource = commandSource;
         this.vault = vault ?? paths.Vault;
         this.autoRun = autoRun ?? paths.AutoRunStore;
         var loaded = new EnvConfig();
@@ -58,7 +60,9 @@ public sealed class EnvyStore
         if (startupProblem is null) Save();
     }
 
-    public ShellOutput Output => new(Paths.ShellDirectory, AppPath, Paths.Home);
+    public string? CommandSource { get; }
+
+    public ShellOutput Output => new(Paths.ShellDirectory, AppPath, Paths.Home, CommandSource, Paths.IsSandbox ? Paths.Home : null);
 
     // Saving
 
@@ -142,6 +146,131 @@ public sealed class EnvyStore
         to.Add((name, Config.Clone()));
         Config = snapshot;
         Changed?.Invoke(true);
+    }
+
+    // The envy command
+
+    /// <summary>
+    /// Runs one envy command. A change is one undoable step, saved right away so the next envy exec sees it. The
+    /// request, if any, is for the window: a dialog to paste a secret into, or the window itself.
+    /// </summary>
+    public (CommandResponse Response, AppRequest? Request) HandleCommand(CommandRequest request)
+    {
+        try
+        {
+            var command = EnvyCommand.Parse(request.Arguments, request.Context.Directories.FirstOrDefault() ?? Paths.Home, Paths.Home);
+            var updated = Config.Clone();
+            var outcome = command.Run(updated, request.CommandContext, Paths.Home);
+            if (outcome.ActionName is { } actionName && !updated.ContentEquals(Config))
+            {
+                if (SecretsLocked)
+                    return (new CommandResponse { Error = $"Envy can't read your secrets from {vault.Location}, so it can't change anything right now. Open Envy and choose Try Again.", ExitCode = 1 }, null);
+                Perform(actionName, c =>
+                {
+                    c.Global = updated.Global;
+                    c.Projects = updated.Projects;
+                });
+                Save();
+                if (Problem is { } problem)
+                    return (new CommandResponse { Output = outcome.Output, Error = $"Saved, but terminals won't see it yet: {problem}", ExitCode = 1 }, null);
+            }
+            return (new CommandResponse { Output = outcome.Output, Activate = outcome.Request is not null }, outcome.Request);
+        }
+        catch (EnvyUsageException e)
+        {
+            return (new CommandResponse { Error = e.Message, ExitCode = 2 }, null);
+        }
+        catch (Exception e)
+        {
+            return (new CommandResponse { Error = e.Message, ExitCode = 1 }, null);
+        }
+    }
+
+    // Coding agents
+
+    /// <summary>Claude Code's settings folder when a shell (or your user environment) sets CLAUDE_CONFIG_DIR.</summary>
+    public string? ClaudeConfigDirectory =>
+        Paths.IsSandbox ? null
+        : Inspections.Values.Select(i => i?.ClaudeConfigDirectory).FirstOrDefault(d => !string.IsNullOrEmpty(d))
+          ?? Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR");
+
+    public List<AgentTarget> AgentTargets => AgentInstructions.Targets(Paths.Home, ClaudeConfigDirectory);
+
+    /// <summary>The agents a target reaches that a shell found on its PATH.</summary>
+    public List<string> FoundAgents(AgentTarget target)
+    {
+        var found = Inspections.Values.Where(i => i is not null).SelectMany(i => i!.Agents).ToHashSet();
+        return target.Agents.Select(a => a.Name).Where(found.Contains).ToList();
+    }
+
+    /// <summary>Whether one of the target's agents is on a shell's PATH or has left its settings folder here.</summary>
+    public bool IsPresent(AgentTarget target) => FoundAgents(target).Count > 0 || target.ConfigDirectories.Any(Directory.Exists);
+
+    public void InstallInstructions(IEnumerable<AgentTarget> targets)
+    {
+        try { foreach (var target in targets) AgentInstructions.Install(target); }
+        finally { StatusChanged?.Invoke(); }
+    }
+
+    public void RemoveInstructions(AgentTarget target)
+    {
+        try { AgentInstructions.Uninstall(target); }
+        finally { StatusChanged?.Invoke(); }
+    }
+
+    public bool AgentOfferAnswered => File.Exists(Paths.AgentOfferMarker);
+
+    /// <summary>For people who set Envy up before it could teach agents: asks once, while none have instructions.</summary>
+    public bool ShouldOfferAgentInstructions
+    {
+        get
+        {
+            if (!HasOnboarded || AgentOfferAnswered) return false;
+            var targets = AgentTargets;
+            return targets.Any(IsPresent) && targets.All(t => AgentInstructions.Status(t) == AgentInstructionStatus.NotInstalled);
+        }
+    }
+
+    /// <summary>Installs instructions for the agents found here (leaving files Envy didn't write alone) and stops asking.</summary>
+    public void AcceptAgentOffer()
+    {
+        try
+        {
+            InstallInstructions(AgentTargets.Where(t => IsPresent(t) && AgentInstructions.Status(t) != AgentInstructionStatus.Foreign));
+        }
+        finally
+        {
+            DismissAgentOffer();
+        }
+    }
+
+    public void DismissAgentOffer()
+    {
+        Directory.CreateDirectory(Paths.SettingsDirectory);
+        File.WriteAllText(Paths.AgentOfferMarker, "");
+        StatusChanged?.Invoke();
+    }
+
+    /// <summary>After an update of Envy, rewrites instructions an older version wrote. Never adds new ones.</summary>
+    public void UpdateOutdatedInstructions()
+    {
+        foreach (var target in AgentTargets.Where(t => AgentInstructions.Status(t) == AgentInstructionStatus.Outdated))
+        {
+            try { AgentInstructions.Install(target); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
+    }
+
+    /// <summary>Takes Envy out of every shell and removes its instructions for coding agents, when the app is uninstalled.</summary>
+    public void Uninstall()
+    {
+        DisconnectAll();
+        var targets = AgentInstructions.Targets(Paths.Home).Concat(AgentTargets).DistinctBy(t => t.File.ToLowerInvariant());
+        foreach (var target in targets)
+        {
+            try { AgentInstructions.Uninstall(target); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
     }
 
     // Projects

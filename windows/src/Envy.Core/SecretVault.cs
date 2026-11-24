@@ -24,13 +24,13 @@ public sealed class FileSecretVault(string path) : ISecretVault
     public Dictionary<string, string> Load()
     {
         if (!File.Exists(path)) return [];
-        return JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(path)) ?? [];
+        return JsonSerializer.Deserialize(File.ReadAllText(path), EnvyJson.Default.DictionaryStringString) ?? [];
     }
 
     public void Save(IReadOnlyDictionary<string, string> secrets)
     {
         PrivateFiles.EnsurePrivateDirectory(Path.GetDirectoryName(path)!);
-        PrivateFiles.AtomicWrite(path, JsonSerializer.Serialize(secrets));
+        PrivateFiles.AtomicWrite(path, JsonSerializer.Serialize(new Dictionary<string, string>(secrets), EnvyJson.Default.DictionaryStringString));
     }
 }
 

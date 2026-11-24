@@ -86,7 +86,8 @@ public static class ShellLocator
 }
 
 /// <summary>What a freshly opened shell looks like.</summary>
-public sealed record ShellInspection(bool HookLoaded, List<string> Agents, string? ExecutionPolicy = null)
+/// <param name="ClaudeConfigDirectory">CLAUDE_CONFIG_DIR when the shell sets it, so Envy's rule goes where Claude Code reads it.</param>
+public sealed record ShellInspection(bool HookLoaded, List<string> Agents, string? ExecutionPolicy = null, string? ClaudeConfigDirectory = null)
 {
     /// <summary>Windows PowerShell doesn't run profile scripts at all under these policies.</summary>
     public bool ScriptsBlocked => ExecutionPolicy is "Restricted" or "AllSigned";
@@ -119,6 +120,7 @@ public static class ShellProbe
                     $o = $env:ENVY_PROBE_OUT
                     $lines = @(if (Get-Command __envy_hook -ErrorAction Ignore) { 'hook:yes' } else { 'hook:no' })
                     $lines += "policy:$(Get-ExecutionPolicy)"
+                    if ($env:CLAUDE_CONFIG_DIR) { $lines += "claude-config:$env:CLAUDE_CONFIG_DIR" }
                     foreach ($c in @({{string.Join(", ", commands.Select(PowerShellScript.Quoted))}})) {
                         if (Get-Command $c -CommandType Application, ExternalScript -ErrorAction Ignore) { $lines += "agent:$c" }
                     }
@@ -134,6 +136,7 @@ public static class ShellProbe
                 var script = $"""
                     if type __envy_hook >/dev/null 2>&1; then echo hook:yes; else echo hook:no; fi > "$ENVY_PROBE_OUT"
                     for c in {string.Join(" ", commands)}; do command -v "$c" >/dev/null 2>&1 && echo "agent:$c" >> "$ENVY_PROBE_OUT"; done
+                    if [ -n "$CLAUDE_CONFIG_DIR" ]; then echo "claude-config:$CLAUDE_CONFIG_DIR" >> "$ENVY_PROBE_OUT"; fi
                     :
                     """;
                 var env = home is null ? null : new Dictionary<string, string> { ["HOME"] = home };
@@ -165,10 +168,12 @@ public static class ShellProbe
         var lines = output.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToHashSet();
         if (!lines.Contains("hook:yes") && !lines.Contains("hook:no")) return null;
         var policy = lines.FirstOrDefault(l => l.StartsWith("policy:"))?["policy:".Length..];
+        var claude = lines.FirstOrDefault(l => l.StartsWith("claude-config:"))?["claude-config:".Length..];
         return new ShellInspection(
             lines.Contains("hook:yes"),
             KnownAgents.Where(a => lines.Contains("agent:" + a.Command)).Select(a => a.Name).ToList(),
-            policy);
+            policy,
+            string.IsNullOrEmpty(claude) ? null : PathStyle.FromPosix(claude));
     }
 
     /// <summary>

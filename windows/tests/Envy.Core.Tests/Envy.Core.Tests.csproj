@@ -14,4 +14,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Envy.Core\Envy.Core.csproj" />
   </ItemGroup>
+  <!-- The envy command, built into cli\ next to the tests, for tests that run it from real shells (Windows only). -->
+  <Target Name="BuildEnvyCommand" AfterTargets="Build" Condition="'$(OS)' == 'Windows_NT'">
+    <MSBuild Projects="..\..\src\Envy.Cli\Envy.Cli.csproj" Targets="Restore" Properties="MSBuildRestoreSessionId=$([System.Guid]::NewGuid())" />
+    <MSBuild Projects="..\..\src\Envy.Cli\Envy.Cli.csproj" Targets="Build" Properties="Configuration=$(Configuration);OutDir=$([System.IO.Path]::GetFullPath('$(OutDir)'))cli\" />
+  </Target>
 </Project>

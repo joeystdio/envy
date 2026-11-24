@@ -123,7 +123,13 @@ public sealed class MainWindow : Window
         AppWindow.Show();
         if (AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } p) p.Restore();
         Activate();
+        // The envy command allows this when it asks for the window (AllowSetForegroundWindow); otherwise Windows flashes
+        // the taskbar button instead.
+        SetForegroundWindow(WinRT.Interop.WindowNative.GetWindowHandle(this));
     }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern bool SetForegroundWindow(IntPtr hWnd);
 
     public void CloseForReal()
     {
@@ -283,6 +289,7 @@ public sealed class MainWindow : Window
     {
         var store = state.Store;
         banner.ActionButton = null;
+        banner.Content = null;
         if (store.Problem is { } problem)
         {
             banner.Severity = InfoBarSeverity.Error;
@@ -299,12 +306,41 @@ public sealed class MainWindow : Window
             banner.ActionButton = UI.Button("Set Up…", ShowSetupAssistant);
             banner.IsOpen = true;
         }
+        else if (state.CommandProblem is { } commandProblem)
+        {
+            banner.Severity = InfoBarSeverity.Warning;
+            banner.Title = "The envy command can't reach Envy";
+            banner.Message = commandProblem;
+            banner.IsOpen = true;
+        }
+        else if (store.ShouldOfferAgentInstructions)
+        {
+            banner.Severity = InfoBarSeverity.Informational;
+            banner.Title = "";
+            banner.Message = "Teach your coding agents about Envy, so they ask you for secrets here instead of in the chat.";
+            var buttons = UI.Row(8,
+                UI.Button("Not Now", store.DismissAgentOffer),
+                UI.Button("Add Instructions", () => Attempt(store.AcceptAgentOffer), accent: true));
+            buttons.Margin = new Thickness(0, 0, 0, 12);
+            banner.Content = buttons;
+            banner.IsOpen = true;
+        }
         else
         {
             banner.IsOpen = false;
         }
         if (nav.FooterMenuItems.FirstOrDefault() is NavigationViewItem { Icon: FontIcon icon })
             icon.Foreground = store.AnyConnected ? UI.Success : UI.Caution;
+    }
+
+    async void Attempt(Action action)
+    {
+        try { action(); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            if (state.XamlRoot is { } root) await UI.Alert(root, "Couldn't add the instructions", e.Message);
+        }
+        UpdateBanner();
     }
 
     // Setup Assistant, shown over the whole window

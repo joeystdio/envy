@@ -39,6 +39,19 @@
   <ItemGroup>
     <ProjectReference Include="..\Envy.Core\Envy.Core.csproj" />
   </ItemGroup>
+  <!--
+    The envy command, published next to the app as cli\envy.exe (trimmed, one self-contained file). The app copies it
+    to %LOCALAPPDATA%\Envy\shell\bin when it starts.
+  -->
+  <!-- A separate dotnet publish: the app's own publish properties (not trimmed, WinUI) mustn't reach it. -->
+  <Target Name="PublishEnvyCommand" AfterTargets="Publish">
+    <PropertyGroup>
+      <_EnvyDotnet>$(DOTNET_HOST_PATH)</_EnvyDotnet>
+      <_EnvyDotnet Condition="'$(_EnvyDotnet)' == ''">dotnet</_EnvyDotnet>
+      <_EnvyCommandDir>$([System.IO.Path]::GetFullPath('$(PublishDir)cli'))</_EnvyCommandDir>
+    </PropertyGroup>
+    <Exec Command="&quot;$(_EnvyDotnet)&quot; publish &quot;$(MSBuildThisFileDirectory)..\Envy.Cli\Envy.Cli.csproj&quot; --nologo -c $(Configuration) -r $(RuntimeIdentifier) -p:Version=$(Version) -o &quot;$(_EnvyCommandDir)&quot;" />
+  </Target>
   <ItemGroup>
     <Content Include="Assets\Envy.ico" CopyToOutputDirectory="PreserveNewest" />
     <PRIResource Include="Strings\en-US\Resources.resw" />

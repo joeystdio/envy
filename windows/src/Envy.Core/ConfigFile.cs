@@ -1,25 +1,15 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace Envy.Core;
 
 /// <summary>Reads and writes config.json (secrets blanked out; they live in Credential Manager).</summary>
 public static class ConfigFile
 {
-    static readonly JsonSerializerOptions Options = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.Never,
-        ReadCommentHandling = JsonCommentHandling.Skip,
-        AllowTrailingCommas = true,
-    };
-
-    public static string Serialize(EnvConfig config) => JsonSerializer.Serialize(config.WithoutSecretValues(), Options);
+    public static string Serialize(EnvConfig config) => JsonSerializer.Serialize(config.WithoutSecretValues(), EnvyJson.Default.EnvConfig);
 
     public static EnvConfig Deserialize(string json)
     {
-        var config = JsonSerializer.Deserialize<EnvConfig>(json, Options) ?? new EnvConfig();
+        var config = JsonSerializer.Deserialize(json, EnvyJson.Default.EnvConfig) ?? new EnvConfig();
         config.Normalize();
         return config;
     }

@@ -40,9 +40,14 @@ public sealed class AppState
         Store.StatusChanged += () => OnUi(() => StatusChanged?.Invoke());
     }
 
-    /// <summary>Finds the shells and checks each connected one in the background.</summary>
+    /// <summary>
+    /// Listens for the envy command, brings instructions an older Envy wrote for coding agents up to date, then finds the
+    /// shells and checks each connected one in the background.
+    /// </summary>
     public void Start()
     {
+        StartCommandServer();
+        Store.UpdateOutdatedInstructions();
         _ = Task.Run(() =>
         {
             Store.RefreshShells();
@@ -76,6 +81,85 @@ public sealed class AppState
                 StatusChanged?.Invoke();
             });
         });
+    }
+
+    // The envy command
+
+    CommandPipeServer? commandServer;
+
+    /// <summary>Why the envy command can't reach this app, when it can't.</summary>
+    public string? CommandProblem { get; private set; }
+
+    void StartCommandServer()
+    {
+        try
+        {
+            var server = new CommandPipeServer(CommandPipe.Name(Store.Paths), request =>
+            {
+                var done = new TaskCompletionSource<CommandResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
+                var queued = dispatcher.TryEnqueue(() =>
+                {
+                    try { done.SetResult(HandleCommand(request)); }
+                    catch (Exception e)
+                    {
+                        App.Log(e);
+                        done.SetResult(new CommandResponse { Error = e.Message, ExitCode = 1 });
+                    }
+                });
+                if (!queued) done.SetResult(new CommandResponse { Error = "Envy is quitting.", ExitCode = 1 });
+                return done.Task;
+            });
+            server.Start();
+            commandServer = server;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            CommandProblem = $"The envy command can't reach Envy ({e.Message}). Quit and reopen Envy to try again.";
+        }
+    }
+
+    public void StopCommandServer()
+    {
+        commandServer?.Dispose();
+        commandServer = null;
+    }
+
+    /// <summary>Runs one envy command; a request for the window opens it, with the add-variable dialog for a secret.</summary>
+    CommandResponse HandleCommand(CommandRequest request)
+    {
+        var (response, appRequest) = Store.HandleCommand(request);
+        switch (appRequest)
+        {
+            case AppRequest.PasteSecret(var project, var key):
+                _ = ShowWindowThen(project, () => Dialogs.EditVariable(this, project, null, new EnvVar(key, isSecret: true), requested: true));
+                break;
+            case AppRequest.Show(var project):
+                _ = ShowWindowThen(project, null);
+                break;
+        }
+        return response;
+    }
+
+    async Task ShowWindowThen(Guid? project, Func<Task>? then)
+    {
+        if (project is { } id && Store.Config.Find(id) is not null) Window?.Select(id);
+        App.Current.ShowMainWindow();
+        // A window that has never been shown (Envy started in the notification area) has no XamlRoot for a dialog yet.
+        for (var i = 0; i < 50 && XamlRoot is null; i++) await Task.Delay(100);
+        if (then is not null) await then();
+    }
+
+    // Coding agents
+
+    /// <summary>The instruction files for agents found here: on a shell's PATH, or with their settings folder.</summary>
+    public List<AgentTarget> PresentAgents => Store.AgentTargets.Where(Store.IsPresent).ToList();
+
+    /// <summary>The agents a target reaches, named by what was found ("Codex and other agents"), since one skill reaches several.</summary>
+    public string AgentTitle(AgentTarget target)
+    {
+        var found = Store.FoundAgents(target);
+        if (target.Agents.Length <= 1 || found.Count == 0) return target.Name;
+        return found.Count < target.Agents.Length ? string.Join(", ", found) + " and other agents" : UI.JoinList(found);
     }
 
     /// <summary>All coding agents any checked shell found on its PATH.</summary>

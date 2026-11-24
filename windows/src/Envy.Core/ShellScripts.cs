@@ -47,10 +47,17 @@ public static class BashScript
         #
         #   envy status   what's loaded in this shell
         #   envy reload   reload right now
-        #   envy open     open the app
+        #   envy help     everything else (the envy command in bin/, which scripts and agents can run too)
 
         __envy_dir="${ENVY_DIR-}"
         if [ -z "$__envy_dir" ]; then __envy_dir={{SingleQuoted(shellDirPosix)}}; fi
+
+        # The envy command on PATH, so programs started from this shell (coding agents too) can run it.
+        case ":${PATH-}:" in
+          *":$__envy_dir/bin:"*) ;;
+          *) if [ -f "$__envy_dir/bin/envy.exe" ]; then export PATH="$__envy_dir/bin${PATH:+:$PATH}"; fi ;;
+        esac
+
         __envy_gen=""
         __envy_sig=""
         __envy_m=""
@@ -149,20 +156,41 @@ public static class BashScript
           return $__envy_rc
         }
 
+        # Status and reload are about this shell, so they run here; everything else goes to the envy command. Some tools
+        # copy shell functions into their own shells without these variables or the hook having run (Claude Code's shell
+        # snapshots, for one); there, everything goes to the envy command. Git Bash rewrites arguments that look like
+        # paths (NAME=/v1 becomes NAME=C:/Program Files/Git/v1), so that's off except for exec, whose command may need it.
         function envy {
+          local __envy_d="${__envy_dir-}" __envy_hooked=""
+          [ -n "$__envy_d" ] || __envy_d="${ENVY_DIR-}"
+          [ -n "$__envy_d" ] || __envy_d={{SingleQuoted(shellDirPosix)}}
+          if [ -n "${__envy_gen-}" ] && type __envy_hook >/dev/null 2>&1; then __envy_hooked=1; fi
           case "${1:-status}" in
             status)
+              if [ -z "$__envy_hooked" ] && [ -f "$__envy_d/bin/envy.exe" ]; then "$__envy_d/bin/envy.exe" status; return; fi
               printf 'Envy: %s\n' "${__envy_active:-nothing loaded here}"
-              if [ -n "$__ENVY_VARS" ]; then printf 'Variables: %s\n' "${__ENVY_VARS% }"; fi
+              if [ -n "${__ENVY_VARS-}" ]; then printf 'Variables: %s\n' "${__ENVY_VARS% }"; fi
               ;;
             reload)
+              if [ -z "$__envy_hooked" ] && [ -f "$__envy_d/bin/envy.exe" ]; then "$__envy_d/bin/envy.exe" reload; return; fi
               __envy_gen="(reload)"
               __envy_sig=""
               __envy_hook
               envy status
               ;;
-            open) {{(appPathPosix is null ? "printf 'Envy is not installed here.\\n' >&2; return 1" : $"( {SingleQuoted(appPathPosix)} >/dev/null 2>&1 & )")}} ;;
-            *) printf 'usage: envy [status|reload|open]\n' >&2; return 2 ;;
+            exec)
+              if [ -f "$__envy_d/bin/envy.exe" ]; then "$__envy_d/bin/envy.exe" "$@"; else printf 'envy: open Envy once to install the envy command\n' >&2; return 1; fi
+              ;;
+            *)
+              if [ -f "$__envy_d/bin/envy.exe" ]; then
+                MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' "$__envy_d/bin/envy.exe" "$@"
+              elif [ "$1" = open ]; then
+                {{(appPathPosix is null ? "printf 'Envy is not installed here.\\n' >&2; return 1" : $"( {SingleQuoted(appPathPosix)} >/dev/null 2>&1 & )")}}
+              else
+                printf 'envy: open Envy once to install the envy command\n' >&2
+                return 1
+              fi
+              ;;
           esac
         }
 

@@ -10,9 +10,13 @@ public static class Dialogs
 {
     static bool open;
 
-    /// <summary>Shows one dialog at a time; WinUI allows only one open ContentDialog.</summary>
-    static async Task<ContentDialogResult> Show(ContentDialog dialog)
+    /// <summary>
+    /// Shows one dialog at a time; WinUI allows only one open ContentDialog. <paramref name="wait"/> waits for the open one
+    /// to close instead of giving up, for dialogs the envy command asked for.
+    /// </summary>
+    static async Task<ContentDialogResult> Show(ContentDialog dialog, bool wait = false)
     {
+        while (wait && open) await Task.Delay(250);
         if (open) return ContentDialogResult.None;
         open = true;
         try { return await dialog.ShowAsync(); }
@@ -21,12 +25,18 @@ public static class Dialogs
 
     // Variable editor
 
-    public static async Task EditVariable(AppState state, Guid projectId, Guid? variableId)
+    /// <param name="template">Starting values for a new variable.</param>
+    /// <param name="requested">Opened by the envy command for a coding agent: the value must be pasted before Add works,
+    /// since the dialog can pop up while you're typing elsewhere, and a stray Enter shouldn't save it empty.</param>
+    public static async Task EditVariable(AppState state, Guid projectId, Guid? variableId, EnvVar? template = null, bool requested = false)
     {
         if (state.XamlRoot is not { } root || state.Store.Config.Find(projectId) is not { } project) return;
         var isNew = variableId is null;
-        var draft = variableId is { } id && project.Variables.Find(v => v.Id == id) is { } existing ? existing with { } : new EnvVar("");
-        var secretTouched = !isNew;
+        var draft = variableId is { } id && project.Variables.Find(v => v.Id == id) is { } existing ? existing with { }
+            : template is not null ? template with { Id = Guid.NewGuid() } : new EnvVar("");
+        var secretTouched = !isNew || template is not null;
+        Action validate = () => { };
+        Control? valueBox = null;
         var reveal = false;
 
         var name = new TextBox { Header = "Name", PlaceholderText = "OPENAI_API_KEY", FontFamily = UI.Mono, Text = draft.Key };
@@ -45,15 +55,17 @@ public static class Dialogs
             if (draft.IsSecret && !reveal)
             {
                 var box = new PasswordBox { Header = "Value", Password = draft.Value };
-                box.PasswordChanged += (_, _) => draft.Value = box.Password;
+                box.PasswordChanged += (_, _) => { draft.Value = box.Password; validate(); };
                 valueHost.Children.Add(box);
+                valueBox = box;
             }
             else
             {
                 // AcceptsReturn before Text: a single-line TextBox keeps only the first line of what it's given.
                 var box = new TextBox { Header = "Value", AcceptsReturn = true, Text = draft.Value, FontFamily = UI.Mono, TextWrapping = TextWrapping.Wrap, MaxHeight = 180 };
-                box.TextChanged += (_, _) => draft.Value = box.Text;
+                box.TextChanged += (_, _) => { draft.Value = box.Text; validate(); };
                 valueHost.Children.Add(box);
+                valueBox = box;
             }
             if (draft.IsSecret)
             {
@@ -66,9 +78,14 @@ public static class Dialogs
         BuildValue();
 
         var panel = UI.Column(12, name, nameHint, valueHost, secret, expand, note);
+        if (requested)
+        {
+            panel.Children.Insert(0, UI.WrapRow(UI.Icon(UI.Terminal, 16, UI.Accent),
+                UI.Text($"A command in your terminal asked for {draft.Key}. Paste its value here: it goes to Windows Credential Manager, and the agent never sees it.", color: UI.Secondary)));
+        }
         var dialog = UI.Dialog(root, isNew ? $"New Variable in {project.Name}" : "Edit Variable", panel, 520);
         dialog.PrimaryButtonText = isNew ? "Add" : "Save";
-        if (isNew) dialog.SecondaryButtonText = "Add & New";
+        if (isNew && !requested) dialog.SecondaryButtonText = "Add & New";
         dialog.CloseButtonText = "Cancel";
 
         void Validate()
@@ -79,8 +96,9 @@ public static class Dialogs
             nameHint.Text = problem ?? (clashes ? (isNew ? $"{key} already exists here; adding replaces its value." : $"Another {key} exists here; the last one wins.") : "");
             nameHint.Foreground = problem is not null ? UI.Critical : UI.Caution;
             nameHint.Visibility = nameHint.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-            dialog.IsPrimaryButtonEnabled = dialog.IsSecondaryButtonEnabled = key.Length > 0 && problem is null;
+            dialog.IsPrimaryButtonEnabled = dialog.IsSecondaryButtonEnabled = key.Length > 0 && problem is null && !(requested && draft.Value.Length == 0);
         }
+        validate = Validate;
         name.TextChanged += (_, _) =>
         {
             draft.Key = name.Text;
@@ -117,8 +135,12 @@ public static class Dialogs
             BuildValue();
             name.Focus(FocusState.Programmatic);
         };
-        dialog.Opened += (_, _) => name.Focus(FocusState.Programmatic);
-        if (await Show(dialog) == ContentDialogResult.Primary) Save();
+        dialog.Opened += (_, _) =>
+        {
+            if (template is not null && valueBox is not null) valueBox.Focus(FocusState.Programmatic);
+            else name.Focus(FocusState.Programmatic);
+        };
+        if (await Show(dialog, wait: requested) == ContentDialogResult.Primary) Save();
     }
 
     // Import .env / appsettings.json

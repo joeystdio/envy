@@ -93,7 +93,23 @@ In **Command Prompt**:
 1. Shell Integration → Show in File Explorer opens `%LOCALAPPDATA%\Envy\shell`. `icacls "%LOCALAPPDATA%\Envy\shell"` lists only your account.
 2. The preview shows the PowerShell, Git Bash and Command Prompt scripts with secrets masked.
 
-## 7. Sandbox
+## 7. The envy command and coding agents
+
+In a new PowerShell window, `cd $env:USERPROFILE\envy-test-code\web` (repeat the starred items in Git Bash and Command Prompt):
+
+1. `(Get-Command envy -CommandType Application).Source` is `%LOCALAPPDATA%\Envy\shell\bin\envy.exe`, and that folder is on `PATH` once (`$env:PATH -split ';'`). Quit Envy from the tray first: `envy list` starts it in the notification area and answers within a few seconds. ★
+2. `envy set PORT=4000` → "Updated PORT in web." and the note about `envy exec`. Envy's window shows it at once, and **Ctrl+Z** in Envy undoes it as one step. `envy set API_TOKEN=x` is refused ("looks like a secret"); `envy set STRIPE_SECRET_KEY=x --project shop` is refused ("is a secret in shop"). ★
+3. `envy add OPENAI_API_KEY --secret` → Envy comes to the front with "New Variable in web": the name filled in, Secret on, the cursor in Value, a note that a command in your terminal asked for it, and **Add** greyed out until a value is pasted. Paste `sk-test-agent`, **Add**. `envy list web` shows `OPENAI_API_KEY  secret` and never the value.
+4. `envy import .env --project lab` → names only, "Stored as secrets in Windows Credential Manager: …" for secret-looking ones, and the file is unchanged.
+5. `envy status` → "Envy loads here: Global, web (later ones win)", and since this window started before the changes, "missing …" with the `envy exec` hint. `envy exec -- pwsh -NoProfile -c '$env:PORT'` prints `4000`. ★
+6. `envy project add demo --folder .` in a folder no project has; `envy link --project demo` in another folder; `envy unlink --project demo`; `envy off PORT`; `envy on --project demo`; `envy remove PORT`. Each appears in Envy right away.
+7. `envy help` and `envy --version` work with Envy quit and without starting it. ★
+8. Shell Integration → **Coding agents** lists Claude Code (`~\.claude\rules\envy.md`) and the other agents (`~\.agents\skills\envy\SKILL.md`). **Install** writes the file; **Remove** deletes it (and the empty `envy` skill folder) and leaves other files there alone. A file with that name that Envy didn't write is reported and left alone.
+9. With nothing installed and an agent present, the banner "Teach your coding agents about Envy…" appears once: **Not Now** hides it for good (`%APPDATA%\Envy\.agents-offered`); **Add Instructions** installs them. A fresh Setup Assistant shows a "Teach your coding agents" step with a checkbox per instruction file.
+10. With the instructions installed, start Claude Code (or Codex, Gemini CLI, Copilot CLI) in `envy-test-code\web` and ask it to "get this project running; it needs PORT and an OPENAI_API_KEY". Expected: it uses `envy status`/`envy set`, runs `envy add OPENAI_API_KEY --secret` and tells you Envy is waiting instead of asking for the key in the chat or writing a `.env`, and runs the app with `envy exec --`.
+11. A sandboxed process can't reach Envy: copy `envy.exe` and `envy.json` from `%LOCALAPPDATA%\Envy\shell\bin` to a test folder, run `icacls <folder>\envy.exe /setintegritylevel low`, then from there `envy list` works with "read from Envy's settings file…" on stderr, and `envy set A=1 --global` says "This process isn't allowed to reach Envy, probably because a coding agent's sandbox blocks it…".
+
+## 8. Sandbox
 
 ```powershell
 $env:ENVY_HOME = "$env:TEMP\envy-sandbox"; & "$env:LOCALAPPDATA\Programs\Envy\Envy.exe"
@@ -101,9 +117,9 @@ $env:ENVY_HOME = "$env:TEMP\envy-sandbox"; & "$env:LOCALAPPDATA\Programs\Envy\En
 
 The title shows the sandbox path. Connecting shells there writes `Documents\PowerShell\profile.ps1`, `.bashrc` and `AutoRun.txt` inside the sandbox; your real profiles and registry don't change. Secrets go to `AppData\Roaming\Envy\secrets.json` there, not Credential Manager.
 
-## 8. Uninstall
+## 9. Uninstall
 
-Settings → Apps → Envy → Uninstall. Expected: the Envy blocks are gone from the profiles and `.bashrc`, Envy's part is gone from AutoRun (anything else stays), and `%LOCALAPPDATA%\Envy\shell` is removed. Compare with the files saved in step 0, then remove the test folders and the `Envy/…` credentials if you don't keep Envy.
+Settings → Apps → Envy → Uninstall. Expected: the Envy blocks are gone from the profiles and `.bashrc`, Envy's part is gone from AutoRun (anything else stays), `%LOCALAPPDATA%\Envy\shell` (with the envy command) is removed, and so are `~\.claude\rules\envy.md` and `~\.agents\skills\envy`. Compare with the files saved in step 0, then remove the test folders and the `Envy/…` credentials if you don't keep Envy.
 
 ## Build
 
@@ -112,7 +128,7 @@ winget install --id Microsoft.DotNet.SDK.10 -e     # if dotnet --list-sdks has n
 winget install --id JRSoftware.InnoSetup -e        # only for the installer
 git clone -b feature/windows https://github.com/joeystdio/envy.git; cd envy\windows
 dotnet test --project tests/Envy.Core.Tests
-dotnet publish src/Envy.App -c Release -r win-x64 -p:Platform=x64 -o artifacts/publish
+dotnet publish src/Envy.App -c Release -r win-x64 -p:Platform=x64 -o artifacts/publish   # also publishes cli\envy.exe
 & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer\Envy.iss    # artifacts\Envy-Setup.exe
 ```
 

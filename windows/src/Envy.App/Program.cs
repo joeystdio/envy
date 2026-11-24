@@ -9,14 +9,16 @@ public static class Program
 {
     /// <summary>
     /// Starts Envy, or shows the copy that's already running (envy open, the Start menu, a second double-click).
-    /// <c>--disconnect-all</c> takes Envy out of every shell without a window; the uninstaller runs that.
+    /// <c>--disconnect-all</c> takes Envy out of every shell and removes its instructions for coding agents, without a
+    /// window; the uninstaller runs that.
     /// </summary>
     [STAThread]
     public static int Main(string[] args)
     {
         if (args.Contains("--disconnect-all"))
         {
-            new EnvyStore(new AppPaths(), Environment.ProcessPath).DisconnectAll();
+            // The uninstaller: out of every shell, and the instructions for coding agents removed.
+            new EnvyStore(new AppPaths(), Environment.ProcessPath).Uninstall();
             return 0;
         }
 

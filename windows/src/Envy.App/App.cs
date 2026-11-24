@@ -47,7 +47,7 @@ public sealed class App : Application, IXamlMetadataProvider
     void Launch()
     {
         Resources.MergedDictionaries.Add(new XamlControlsResources());
-        state = new AppState(new EnvyStore(new AppPaths(), Environment.ProcessPath));
+        state = new AppState(new EnvyStore(new AppPaths(), Environment.ProcessPath, commandSource: AppPaths.BundledCommandDirectory(Environment.ProcessPath)));
         window = new MainWindow(state);
         state.Window = window;
 
@@ -90,6 +90,7 @@ public sealed class App : Application, IXamlMetadataProvider
 
     public void Quit()
     {
+        state?.StopCommandServer();
         state?.SaveNow();
         tray?.Dispose();
         tray = null;

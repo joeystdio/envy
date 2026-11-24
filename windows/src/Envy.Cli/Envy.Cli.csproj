@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The envy command (envy.exe) for terminals, scripts and coding agents. It sends what it's asked to the running app
+    over a named pipe, so the app stays the only writer. Published trimmed and self-contained as one file, so it starts
+    fast and needs no .NET install; the app publishes it to cli\ next to Envy.exe and copies it to
+    %LOCALAPPDATA%\Envy\shell\bin, which the shell hooks put on PATH.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>Envy.Cli</RootNamespace>
+    <AssemblyName>envy</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+  <!-- One file: no symbols of Envy.Core next to it (envy.exe embeds its own). -->
+  <Target Name="DropReferenceSymbols" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(Extension)' == '.pdb'" />
+    </ItemGroup>
+  </Target>
+  <ItemGroup>
+    <ProjectReference Include="..\Envy.Core\Envy.Core.csproj" />
+  </ItemGroup>
+</Project>

@@ -8,11 +8,11 @@ namespace Envy.App;
 /// <summary>
 /// First-run Setup Assistant: shows the shells and coding agents it found, connects the shells and checks a fresh one of
 /// each, offers to move plain-text secrets out of startup files and user environment variables into Credential
-/// Manager, and imports projects from a folder of code.
+/// Manager, teaches the coding agents it found about the envy command, and imports projects from a folder of code.
 /// </summary>
 public sealed class SetupAssistant : Grid
 {
-    enum Step { Welcome, Connect, Secrets, Projects, Done }
+    enum Step { Welcome, Connect, Secrets, Agents, Projects, Done }
 
     readonly AppState state;
     readonly MainWindow window;
@@ -28,6 +28,9 @@ public sealed class SetupAssistant : Grid
     List<PlaintextExport>? importedExports;
     bool removedPlaintext;
     int? importedProjects;
+    HashSet<string>? chosenAgents;
+    List<string>? installedAgents;
+    string? agentError;
 
     public SetupAssistant(AppState state, MainWindow window, Action close)
     {
@@ -55,7 +58,13 @@ public sealed class SetupAssistant : Grid
         Render();
     }
 
-    List<Step> Steps => [Step.Welcome, Step.Connect, .. exports.Count > 0 ? new[] { Step.Secrets } : [], Step.Projects, Step.Done];
+    List<Step> Steps =>
+    [
+        Step.Welcome, Step.Connect,
+        .. exports.Count > 0 ? new[] { Step.Secrets } : [],
+        .. step == Step.Agents || installedAgents is not null || state.PresentAgents.Count > 0 ? new[] { Step.Agents } : [],
+        Step.Projects, Step.Done,
+    ];
 
     void Move(int offset)
     {
@@ -82,6 +91,7 @@ public sealed class SetupAssistant : Grid
             Step.Welcome => Welcome(),
             Step.Connect => Connect(),
             Step.Secrets => Secrets(),
+            Step.Agents => Agents(),
             Step.Projects => Projects(),
             _ => Done(),
         };
@@ -260,6 +270,56 @@ public sealed class SetupAssistant : Grid
         return panel;
     }
 
+    FrameworkElement Agents()
+    {
+        var present = state.PresentAgents;
+        chosenAgents ??= present.Where(t => AgentInstructions.Status(t) != AgentInstructionStatus.Foreign).Select(t => t.Id).ToHashSet();
+        var panel = UI.Column(14,
+            UI.Title("Teach your coding agents"),
+            UI.Text("Agents started from your shells already get your variables. These instructions tell them how to use Envy too: check what's loaded, add settings, and ask you for a secret in Envy instead of in the chat or a .env file. They never see secret values."));
+        if (installedAgents is not null)
+        {
+            panel.Children.Add(UI.WrapRow(UI.Icon(UI.Verified, 18, UI.Success),
+                UI.Text("Done. Your coding agents now know about Envy; change this any time in Shell Integration.", color: UI.Success)));
+        }
+        else
+        {
+            var list = UI.Column(10);
+            foreach (var target in present)
+            {
+                var status = AgentInstructions.Status(target);
+                var details = UI.Column(2, UI.Text(state.AgentTitle(target)), UI.Text("Adds " + state.Store.Paths.Abbreviate(target.File), 12, UI.Secondary, mono: true));
+                if (status == AgentInstructionStatus.Foreign)
+                    details.Children.Add(UI.Caption("A file Envy didn't write is already there, so Envy leaves it alone.", UI.Caution));
+                var box = new CheckBox { Content = details, IsChecked = chosenAgents.Contains(target.Id), IsEnabled = status != AgentInstructionStatus.Foreign };
+                var id = target.Id;
+                box.Click += (_, _) => { if (box.IsChecked == true) chosenAgents.Add(id); else chosenAgents.Remove(id); RenderFooter(); };
+                list.Children.Add(box);
+            }
+            panel.Children.Add(UI.CardOf(list, 12));
+        }
+        if (agentError is not null) panel.Children.Add(UI.WrapRow(UI.Icon(UI.Warning, 14, UI.Caution), UI.Text(agentError, color: UI.Caution)));
+        panel.Children.Add(UI.CopyableCommand("envy help"));
+        return panel;
+    }
+
+    void InstallAgents()
+    {
+        var picked = state.PresentAgents.Where(t => chosenAgents?.Contains(t.Id) == true && AgentInstructions.Status(t) != AgentInstructionStatus.Foreign).ToList();
+        try
+        {
+            state.Store.InstallInstructions(picked);
+            state.Store.DismissAgentOffer();
+            installedAgents = picked.Select(t => t.Name).ToList();
+            agentError = null;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            agentError = e.Message;
+        }
+        Render();
+    }
+
     FrameworkElement Projects() => UI.Column(12,
         UI.Title("Bring in your projects"),
         UI.Text("Pick the folder where you keep your code. Envy looks for .env, .env.local and .envrc files, and for .NET appsettings.json and user secrets. Each folder it finds becomes a project that loads when a shell enters it.", color: UI.Secondary),
@@ -318,6 +378,15 @@ public sealed class SetupAssistant : Grid
                 right.Children.Add(import);
                 break;
             case Step.Secrets:
+                right.Children.Add(UI.Button("Continue", () => Move(1), accent: true));
+                break;
+            case Step.Agents when installedAgents is null:
+                right.Children.Add(UI.Button("Skip", () => Move(1)));
+                var add = UI.Button("Add Instructions", InstallAgents, accent: true);
+                add.IsEnabled = chosenAgents?.Count > 0;
+                right.Children.Add(add);
+                break;
+            case Step.Agents:
                 right.Children.Add(UI.Button("Continue", () => Move(1), accent: true));
                 break;
             case Step.Projects:
