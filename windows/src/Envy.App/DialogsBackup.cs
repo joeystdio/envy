@@ -20,13 +20,13 @@ public static partial class Dialogs
         var variables = config.Scopes.Sum(p => p.Variables.Count);
         var secrets = config.Scopes.Sum(p => p.Variables.Count(v => v.IsSecret));
 
-        var password = new PasswordBox { Header = "Password" };
+        var password = new PasswordBox { Header = "Password", PlaceholderText = $"At least {Backup.MinimumPasswordLength} characters" };
         var again = new PasswordBox { Header = "Type it again" };
         var problem = UI.Caption("", UI.Caution);
         var panel = UI.Column(12,
             UI.Text($"Saves Global and {UI.Plural(config.Projects.Count, "project", "projects")}, with their folders and {UI.Plural(variables, "variable", "variables")}, {secrets} of them secret, in one file encrypted with this password. Envy on a Mac or another PC can restore it."),
             password, again, problem,
-            UI.Caption($"At least {Backup.MinimumPasswordLength} characters. Envy doesn't keep this password: without it, the backup can't be opened."));
+            UI.Caption("Envy doesn't keep this password: without it, the backup can't be opened."));
         var dialog = UI.Dialog(root, "Back Up Everything", panel, 480);
         dialog.PrimaryButtonText = "Save Backup…";
         dialog.CloseButtonText = "Cancel";
@@ -67,7 +67,7 @@ public static partial class Dialogs
     public static async Task<bool> Restore(AppState state)
     {
         if (state.XamlRoot is not { } root || state.Window is not { } window) return false;
-        if (await UI.PickFile(window, Backup.Extension) is not { } path) return false;
+        if (await UI.PickFile(window, "Envy backup", Backup.Extension) is not { } path) return false;
         string text;
         try { text = await File.ReadAllTextAsync(path); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
@@ -216,9 +216,7 @@ public static partial class Dialogs
             yield return "Global is replaced.";
         if (report.ProjectsAdded.Count > 0) yield return $"Adds {UI.Plural(report.ProjectsAdded.Count, "project", "projects")}: {UI.JoinList(report.ProjectsAdded)}.";
         if (report.ProjectsMerged.Count > 0) yield return $"Merges into {UI.JoinList(report.ProjectsMerged)}; their values from the backup win.";
-        yield return mode == RestoreMode.Add
-            ? $"{UI.Plural(report.VariablesAdded, "variable", "variables")} added, {report.VariablesReplaced} replaced, {report.Secrets} of them secret. Ctrl+Z undoes it."
-            : $"{UI.Plural(report.VariablesAdded, "variable", "variables")}, {report.Secrets} of them secret. Ctrl+Z undoes it.";
+        yield return VariableCounts(report, mode) + " Ctrl+Z undoes it.";
         if (report.MissingFolders.Count > 0)
             yield return "These folders don't exist on this PC. They're restored anyway; link the project to the right folder later:\n"
                 + string.Join("\n", report.MissingFolders.Select(m => $"   {m.Project}: {paths.Abbreviate(m.Folder)}"));
@@ -227,5 +225,24 @@ public static partial class Dialogs
                 + string.Join("\n", report.SkippedFolders.Select(s => $"   {s.Project}: {paths.Abbreviate(s.Folder)} (belongs to {s.Owner})"));
         if (report.TurnedOff.Count > 0)
             yield return $"Restored switched off, since all their folders belong to other projects: {UI.JoinList(report.TurnedOff)}.";
+    }
+
+    /// <summary>"7 variables added, 1 replaced, 1 of them secret.", leaving out the parts that are zero.</summary>
+    internal static string VariableCounts(RestoreReport report, RestoreMode mode)
+    {
+        var parts = new List<string>();
+        if (mode == RestoreMode.Replace)
+        {
+            if (report.VariablesAdded > 0) parts.Add(UI.Plural(report.VariablesAdded, "variable", "variables"));
+        }
+        else
+        {
+            if (report.VariablesAdded > 0) parts.Add(UI.Plural(report.VariablesAdded, "variable", "variables") + " added");
+            if (report.VariablesReplaced > 0)
+                parts.Add(parts.Count == 0 ? UI.Plural(report.VariablesReplaced, "variable", "variables") + " replaced" : $"{report.VariablesReplaced} replaced");
+        }
+        if (parts.Count == 0) return "No variables.";
+        if (report.Secrets > 0) parts.Add($"{report.Secrets} of them secret");
+        return string.Join(", ", parts) + ".";
     }
 }

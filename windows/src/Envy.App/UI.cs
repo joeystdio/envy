@@ -200,6 +200,19 @@ public static class UI
         return (await picker.PickSingleFileAsync())?.Path;
     }
 
+    /// <summary>Picks a file of one named type, shown as "Envy backup (*.envybackup)".</summary>
+    public static async Task<string?> PickFile(Window owner, string typeName, string extension)
+    {
+        try
+        {
+            return NamedFileOpenDialog.Pick(WinRT.Interop.WindowNative.GetWindowHandle(owner), typeName, extension);
+        }
+        catch (Exception e) when (e is System.Runtime.InteropServices.COMException or InvalidCastException)
+        {
+            return await PickFile(owner, extension); // the same picker, with Windows' own "All files" label
+        }
+    }
+
     public static async Task<string?> PickSaveFile(Window owner, string suggestedName, string typeName = "Environment file", string extension = ".env")
     {
         var picker = new FileSavePicker { SuggestedStartLocation = PickerLocationId.DocumentsLibrary, SuggestedFileName = suggestedName };
