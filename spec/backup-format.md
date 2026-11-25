@@ -26,8 +26,9 @@ Nothing about the contents (names, counts, paths, dates) is outside the encrypte
 
 1. Not JSON, or `format` isn't `envy-backup`: "This isn't an Envy backup."
 2. `version` greater than 1: "This backup was made by a newer version of Envy. Update Envy to restore it."
-3. `kdf.name` or `cipher.name` unknown, `iterations` outside 100,000…10,000,000, salt not 16 bytes, nonce not 12
-   bytes, or `data` shorter than 16 bytes: "This backup is damaged."
+3. With `format` `envy-backup`: any other field missing or of the wrong JSON type, `kdf.name` or `cipher.name`
+   unknown, `iterations` outside 100,000…10,000,000, salt not 16 bytes, nonce not 12 bytes, or `data` shorter than 16
+   bytes: "This backup is damaged."
 4. Decryption fails (tag mismatch): "Wrong password, or the file is damaged."
 
 ## Encryption
@@ -121,7 +122,7 @@ From Windows, restoring on macOS (macOS expands the value like a double-quoted s
 | Found | Reason shown | Suggestion |
 | --- | --- | --- |
 | `$(` or a backtick | "This would run a command on a Mac; on Windows it was plain text." | none; default **Turn Expand off** |
-| `%NAME%` or `$env:NAME` | "A Mac doesn't understand %NAME% or $env:NAME." | `%USERPROFILE%` becomes `$HOME`; any other `%NAME%` and `$env:NAME` become `${NAME}` |
+| `%NAME%` or `$env:NAME` | "A Mac doesn't understand %NAME% or $env:NAME." | `%USERPROFILE%` and `$env:USERPROFILE` (any case) become `$HOME`; any other `%NAME%` and `$env:NAME` become `${NAME}` |
 | a key that is or ends in `PATH`, with `;` | "A Mac separates folders with :." | `;` becomes `:` |
 
 When a suggestion is made (rows 2 and 3 in either direction), the separators in the rest of the value follow the new

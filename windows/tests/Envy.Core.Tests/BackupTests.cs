@@ -46,6 +46,10 @@ public class BackupTests : TempDirectoryTest
         Assert.Equal("This isn't an Envy backup.", Error("PORT=1\n"));
         Assert.Equal("This isn't an Envy backup.", Error("{\"format\": \"something-else\"}"));
         Assert.Equal("This backup is damaged.", Error(Sample("windows.envybackup").Replace("\"iterations\": 600000", "\"iterations\": 1000")));
+        // A backup with a field of the wrong type is damaged, not something else.
+        Assert.Equal("This backup is damaged.", Error(Sample("windows.envybackup").Replace("\"iterations\": 600000", "\"iterations\": \"many\"")));
+        Assert.Equal("This backup is damaged.", Error("{\"format\": \"envy-backup\", \"version\": 1, \"kdf\": \"none\"}"));
+        Assert.Equal("This isn't an Envy backup.", Error("[1, 2]"));
     }
 
     [Fact]
@@ -177,6 +181,8 @@ public class BackupTests : TempDirectoryTest
             ],
             issues.Select(i => (i.ScopeName, i.Key, i.Suggestion, i.DefaultAction)));
         Assert.Empty(BackupRestore.ExpandIssues(windows, Backup.Windows));
+        // The home folder becomes $HOME however Windows spelled it.
+        Assert.Equal("$HOME/tools:$HOME/bin", BackupRestore.Suggest("TOOLS_PATH", @"$env:USERPROFILE\tools;%userprofile%\bin", Backup.Windows, Backup.MacOS)?.Suggestion);
     }
 
     [Fact]

@@ -170,7 +170,11 @@ public static class Backup
     {
         BackupFile? file;
         try { file = JsonSerializer.Deserialize(text, EnvyJson.Default.BackupFile); }
-        catch (JsonException e) { throw new BackupException("This isn't an Envy backup.", e); }
+        catch (JsonException e)
+        {
+            // An Envy backup with a field of the wrong type is damaged; anything else isn't a backup.
+            throw new BackupException(LooksLikeBackup(text) ? "This backup is damaged." : "This isn't an Envy backup.", e);
+        }
         if (file is null || file.Format != FormatName) throw new BackupException("This isn't an Envy backup.");
         if (file.Version > FormatVersion) throw new BackupException("This backup was made by a newer version of Envy. Update Envy to restore it.");
 
@@ -201,6 +205,19 @@ public static class Backup
             CryptographicOperations.ZeroMemory(plain);
             CryptographicOperations.ZeroMemory(key);
         }
+    }
+
+    /// <summary>Whether <paramref name="text"/> is a JSON object whose format is envy-backup, whatever its other fields hold.</summary>
+    static bool LooksLikeBackup(string text)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(text);
+            return doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("format", out var format)
+                && format.ValueKind == JsonValueKind.String && format.GetString() == FormatName;
+        }
+        catch (JsonException) { return false; }
     }
 
     static byte[] Key(string password, byte[] salt, int iterations)
@@ -398,7 +415,7 @@ public static partial class BackupRestore
             {
                 reasons.Add("A Mac doesn't understand %NAME% or $env:NAME.");
                 suggestion = PercentName().Replace(suggestion, m => m.Groups[1].Value.Equals("USERPROFILE", StringComparison.OrdinalIgnoreCase) ? "$HOME" : "${" + m.Groups[1].Value + "}");
-                suggestion = PowerShellName().Replace(suggestion, m => "${" + m.Groups[1].Value + "}");
+                suggestion = PowerShellName().Replace(suggestion, m => m.Groups[1].Value.Equals("USERPROFILE", StringComparison.OrdinalIgnoreCase) ? "$HOME" : "${" + m.Groups[1].Value + "}");
             }
             if (pathList && suggestion.Contains(';'))
             {
