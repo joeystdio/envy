@@ -44,6 +44,7 @@
   - Scan a whole folder of code at once for `.env`, `.env.local` and `.envrc` files.
   - **.NET**: `appsettings.json`, `appsettings.Development.json` and `dotnet user-secrets`, flattened the way .NET reads them (`ConnectionStrings:Default` → `ConnectionStrings__Default`).
   - Paste or drop `.env` text, copy variables between projects, export back to `.env`.
+- **💾 Back up and move**: **Back Up Everything** saves Global, every project, its folders and variables, secrets included, in one file encrypted with a password you choose. **Restore from Backup** (also in the Setup Assistant on a new machine) adds it to what's there or replaces everything, in one undoable step, on a Mac or a PC: folders under your home folder follow you, and values that expand variables get a suggested rewrite for the other system.
 - **🧭 Setup Assistant**: Detects your shell (zsh or bash, `ZDOTDIR`, dotfile symlinks) and the coding agents you have installed. It then connects your terminal, checks that a fresh shell loads Envy, moves plain-text secrets out of your startup files into the Keychain, and teaches your coding agents about Envy.
 
 ---

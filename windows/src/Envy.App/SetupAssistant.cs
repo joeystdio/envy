@@ -28,6 +28,7 @@ public sealed class SetupAssistant : Grid
     List<PlaintextExport>? importedExports;
     bool removedPlaintext;
     int? importedProjects;
+    bool restored;
     HashSet<string>? chosenAgents;
     List<string>? installedAgents;
     string? agentError;
@@ -123,7 +124,18 @@ public sealed class SetupAssistant : Grid
         var agents = state.Agents;
         setup.Children.Add(Detected(UI.Sparkle, "Coding agents",
             state.Checking.Count > 0 && agents.Count == 0 ? "Looking…" : agents.Count == 0 ? "None found on your PATH" : UI.JoinList(agents)));
-        return UI.Column(24, hello, features, UI.CardOf(setup));
+        // On a new computer: bring everything over first, then connect the shells here.
+        var restore = UI.WrapRow(UI.Icon(UI.Import, 16, UI.Secondary),
+            UI.Text(restored ? "Restored from your backup. Continue to connect your shells on this PC." : "Moving from another computer? Restore your projects, variables and secrets from an Envy backup made on a Mac or a PC.", color: restored ? UI.Success : UI.Secondary),
+            restored ? null : UI.Button("Restore from a Backup…", RestoreBackup));
+        return UI.Column(24, hello, features, UI.CardOf(setup), restore);
+    }
+
+    async void RestoreBackup()
+    {
+        if (!await Dialogs.Restore(state)) return;
+        restored = true;
+        Move(1);
     }
 
     static UIElement Feature(string glyph, string title, string detail)

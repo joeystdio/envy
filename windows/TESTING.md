@@ -109,7 +109,17 @@ In a new PowerShell window, `cd $env:USERPROFILE\envy-test-code\web` (repeat the
 10. With the instructions installed, start Claude Code (or Codex, Gemini CLI, Copilot CLI) in `envy-test-code\web` and ask it to "get this project running; it needs PORT and an OPENAI_API_KEY". Expected: it uses `envy status`/`envy set`, runs `envy add OPENAI_API_KEY --secret` and tells you Envy is waiting instead of asking for the key in the chat or writing a `.env`, and runs the app with `envy exec --`.
 11. A sandboxed process can't reach Envy: copy `envy.exe` and `envy.json` from `%LOCALAPPDATA%\Envy\shell\bin` to a test folder, run `icacls <folder>\envy.exe /setintegritylevel low`, then from there `envy list` works with "read from Envy's settings file…" on stderr, and `envy set A=1 --global` says "This process isn't allowed to reach Envy, probably because a coding agent's sandbox blocks it…".
 
-## 8. Sandbox
+## 8. Back up and restore
+
+1. Sidebar ⋯ → **Back Up Everything…** (Ctrl+Shift+B). The dialog counts the projects, variables and secrets. **Save Backup…** stays disabled until the password has at least 12 characters and both fields match. Save as `Envy Backup <date>.envybackup`. Opening the file in Notepad shows only `format`, `version`, `kdf`, `cipher` and `data`: no names, values or paths.
+2. Sidebar ⋯ → **Restore from Backup…** with a wrong password → "Wrong password, or the file is damaged." and the password box stays open. With the right one, the summary describes the backup (made on Windows, the date, the counts).
+3. **Adding to what's here** (the default): rename a variable's value in Envy first, then restore. The summary says which projects merge and how many variables are replaced; after **Restore** the backup's value is back, nothing was deleted, and Ctrl+Z undoes the whole restore in one step.
+4. **Replacing everything**: create a throwaway project first; the summary says it will be removed, the button reads **Replace Everything**, and afterwards Envy matches the backup exactly. Ctrl+Z brings the throwaway project back.
+5. A project linked to a folder another project already has: the summary lists the folder as not linked; a new project left without folders is restored switched off.
+6. Restore `spec\backup-samples\macos.envybackup` (password `correct horse battery`): it says "Made on a Mac", lists `~/Developer/api` and `/Volumes/Code/api-old` as folders that don't exist on this PC, and lists `PATH`, `TOOLS` and `APP_CONFIG` with suggestions as in `spec\backup-samples\README.md`. Edit the `PATH` suggestion, set `TOOLS` to Turn Expand off, restore, and check the values.
+7. In a sandbox with nothing set up (step 9), the Setup Assistant's welcome step offers **Restore from a Backup…**; after restoring, it continues to Connect.
+
+## 9. Sandbox
 
 ```powershell
 $env:ENVY_HOME = "$env:TEMP\envy-sandbox"; & "$env:LOCALAPPDATA\Programs\Envy\Envy.exe"
@@ -117,7 +127,7 @@ $env:ENVY_HOME = "$env:TEMP\envy-sandbox"; & "$env:LOCALAPPDATA\Programs\Envy\En
 
 The title shows the sandbox path. Connecting shells there writes `Documents\PowerShell\profile.ps1`, `.bashrc` and `AutoRun.txt` inside the sandbox; your real profiles and registry don't change. Secrets go to `AppData\Roaming\Envy\secrets.json` there, not Credential Manager.
 
-## 9. Uninstall
+## 10. Uninstall
 
 Settings → Apps → Envy → Uninstall. Expected: the Envy blocks are gone from the profiles and `.bashrc`, Envy's part is gone from AutoRun (anything else stays), `%LOCALAPPDATA%\Envy\shell` (with the envy command) is removed, and so are `~\.claude\rules\envy.md` and `~\.agents\skills\envy`. Compare with the files saved in step 0, then remove the test folders and the `Envy/…` credentials if you don't keep Envy.
 

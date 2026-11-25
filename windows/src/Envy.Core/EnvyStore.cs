@@ -186,6 +186,36 @@ public sealed class EnvyStore
         }
     }
 
+    // Backups
+
+    /// <summary>
+    /// Everything, secrets included, as an encrypted backup file's text. Refuses while the secrets can't be read, since
+    /// the backup would hold them empty.
+    /// </summary>
+    public string CreateBackup(string password, string app, int iterations = Backup.DefaultIterations) =>
+        Backup.Write(BackupContent(app), password, iterations);
+
+    /// <summary>What a backup would hold, for encrypting away from the UI thread.</summary>
+    public BackupContent BackupContent(string app)
+    {
+        if (SecretsLocked) throw new BackupException($"Envy can't read your secrets from {vault.Location}, so a backup would leave them out. Choose Try Again first.");
+        return Backup.FromConfig(Config, Paths.Home, app, DateTime.UtcNow);
+    }
+
+    /// <summary>What restoring would do, without changing anything.</summary>
+    public RestoreReport PreviewRestore(BackupContent backup, RestoreMode mode, IReadOnlyList<ExpandFix>? fixes = null) =>
+        BackupRestore.Apply(Config.Clone(), backup, mode, Paths.Home, fixes);
+
+    /// <summary>Restores <paramref name="backup"/> as one undoable step, saved right away.</summary>
+    public RestoreReport RestoreBackup(BackupContent backup, RestoreMode mode, IReadOnlyList<ExpandFix>? fixes = null)
+    {
+        if (SecretsLocked) throw new BackupException($"Envy can't read your secrets from {vault.Location}, so it can't restore them. Choose Try Again first.");
+        RestoreReport? report = null;
+        Perform("Restore Backup", c => report = BackupRestore.Apply(c, backup, mode, Paths.Home, fixes));
+        Save();
+        return report ?? new RestoreReport();
+    }
+
     // Coding agents
 
     /// <summary>Claude Code's settings folder when a shell (or your user environment) sets CLAUDE_CONFIG_DIR.</summary>

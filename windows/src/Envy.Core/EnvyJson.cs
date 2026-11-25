@@ -18,4 +18,6 @@ namespace Envy.Core;
 [JsonSerializable(typeof(CommandResponse))]
 [JsonSerializable(typeof(LauncherInfo))]
 [JsonSerializable(typeof(ExecData))]
+[JsonSerializable(typeof(BackupFile))]
+[JsonSerializable(typeof(BackupContent))]
 public sealed partial class EnvyJson : JsonSerializerContext;

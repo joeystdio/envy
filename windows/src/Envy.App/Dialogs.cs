@@ -6,7 +6,7 @@ using Microsoft.UI.Xaml.Media;
 namespace Envy.App;
 
 /// <summary>The sheets of the Mac app as dialogs: edit a variable, import, copy from a project, new project, find projects.</summary>
-public static class Dialogs
+public static partial class Dialogs
 {
     static bool open;
 

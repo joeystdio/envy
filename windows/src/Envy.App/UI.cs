@@ -192,18 +192,18 @@ public static class UI
         return (await picker.PickSingleFolderAsync())?.Path;
     }
 
-    public static async Task<string?> PickFile(Window owner)
+    public static async Task<string?> PickFile(Window owner, string extension = "*")
     {
         var picker = new FileOpenPicker { SuggestedStartLocation = PickerLocationId.DocumentsLibrary };
-        picker.FileTypeFilter.Add("*");
+        picker.FileTypeFilter.Add(extension);
         WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(owner));
         return (await picker.PickSingleFileAsync())?.Path;
     }
 
-    public static async Task<string?> PickSaveFile(Window owner, string suggestedName)
+    public static async Task<string?> PickSaveFile(Window owner, string suggestedName, string typeName = "Environment file", string extension = ".env")
     {
         var picker = new FileSavePicker { SuggestedStartLocation = PickerLocationId.DocumentsLibrary, SuggestedFileName = suggestedName };
-        picker.FileTypeChoices.Add("Environment file", [".env"]);
+        picker.FileTypeChoices.Add(typeName, [extension]);
         WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(owner));
         return (await picker.PickSaveFileAsync())?.Path;
     }

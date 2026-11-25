@@ -1,0 +1,97 @@
+{
+  "app": "Envy 1.2.0",
+  "platform": "macos",
+  "created": "2026-11-25T06:00:00Z",
+  "global": {
+    "name": "Global",
+    "isEnabled": true,
+    "folders": [],
+    "variables": [
+      {
+        "key": "PATH",
+        "value": "$HOME/bin:$PATH",
+        "isEnabled": true,
+        "isSecret": false,
+        "expands": true,
+        "note": ""
+      },
+      {
+        "key": "TOOLS",
+        "value": "$(brew --prefix)/bin",
+        "isEnabled": true,
+        "isSecret": false,
+        "expands": true,
+        "note": ""
+      },
+      {
+        "key": "APP_CONFIG",
+        "value": "${HOME}/.config/app",
+        "isEnabled": true,
+        "isSecret": false,
+        "expands": true,
+        "note": ""
+      },
+      {
+        "key": "CACHE",
+        "value": "${XDG_CACHE_HOME}/envy",
+        "isEnabled": true,
+        "isSecret": false,
+        "expands": true,
+        "note": ""
+      },
+      {
+        "key": "GITHUB_TOKEN",
+        "value": "ghp_test_sample",
+        "isEnabled": true,
+        "isSecret": true,
+        "expands": false,
+        "note": ""
+      }
+    ]
+  },
+  "projects": [
+    {
+      "name": "API",
+      "isEnabled": true,
+      "folders": [
+        "~/Developer/api",
+        "/Volumes/Code/api-old"
+      ],
+      "variables": [
+        {
+          "key": "PORT",
+          "value": "5000",
+          "isEnabled": true,
+          "isSecret": false,
+          "expands": false,
+          "note": ""
+        },
+        {
+          "key": "NODE_ENV",
+          "value": "development",
+          "isEnabled": true,
+          "isSecret": false,
+          "expands": false,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "name": "web",
+      "isEnabled": true,
+      "folders": [
+        "~/Developer/web"
+      ],
+      "variables": [
+        {
+          "key": "PUBLIC_URL",
+          "value": "http://localhost:3000",
+          "isEnabled": true,
+          "isSecret": false,
+          "expands": false,
+          "note": ""
+        }
+      ]
+    }
+  ]
+}

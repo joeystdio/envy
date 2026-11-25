@@ -1,0 +1,135 @@
+{
+  "app": "Envy 1.2.0",
+  "platform": "windows",
+  "created": "2026-11-25T05:00:00Z",
+  "global": {
+    "name": "Global",
+    "isEnabled": true,
+    "folders": [],
+    "variables": [
+      {
+        "key": "EDITOR",
+        "value": "code --wait",
+        "isEnabled": true,
+        "isSecret": false,
+        "expands": false,
+        "note": ""
+      },
+      {
+        "key": "OPENAI_API_KEY",
+        "value": "sk-test-sample-123",
+        "isEnabled": true,
+        "isSecret": true,
+        "expands": false,
+        "note": "dummy"
+      },
+      {
+        "key": "OLD_FLAG",
+        "value": "1",
+        "isEnabled": false,
+        "isSecret": false,
+        "expands": false,
+        "note": ""
+      },
+      {
+        "key": "PATH",
+        "value": "%USERPROFILE%\\bin;%PATH%",
+        "isEnabled": true,
+        "isSecret": false,
+        "expands": true,
+        "note": ""
+      },
+      {
+        "key": "JAVA_BIN",
+        "value": "$env:JAVA_HOME\\bin",
+        "isEnabled": true,
+        "isSecret": false,
+        "expands": true,
+        "note": ""
+      },
+      {
+        "key": "GREETING",
+        "value": "hello ${USERNAME}",
+        "isEnabled": true,
+        "isSecret": false,
+        "expands": true,
+        "note": ""
+      },
+      {
+        "key": "WHO",
+        "value": "$(whoami)",
+        "isEnabled": true,
+        "isSecret": false,
+        "expands": true,
+        "note": ""
+      }
+    ]
+  },
+  "projects": [
+    {
+      "name": "api",
+      "isEnabled": true,
+      "folders": [
+        "~/code/api"
+      ],
+      "variables": [
+        {
+          "key": "PORT",
+          "value": "4000",
+          "isEnabled": true,
+          "isSecret": false,
+          "expands": false,
+          "note": ""
+        },
+        {
+          "key": "DB_PASSWORD",
+          "value": "test-db-pass",
+          "isEnabled": true,
+          "isSecret": true,
+          "expands": false,
+          "note": ""
+        },
+        {
+          "key": "API_URL",
+          "value": "http://localhost:%PORT%/api",
+          "isEnabled": true,
+          "isSecret": false,
+          "expands": true,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "name": "Tools",
+      "isEnabled": false,
+      "folders": [],
+      "variables": [
+        {
+          "key": "DEBUG",
+          "value": "1",
+          "isEnabled": true,
+          "isSecret": false,
+          "expands": false,
+          "note": ""
+        }
+      ]
+    },
+    {
+      "name": "Work site",
+      "isEnabled": true,
+      "folders": [
+        "D:\\work\\site"
+      ],
+      "variables": [
+        {
+          "key": "SITE_ENV",
+          "value": "staging",
+          "isEnabled": true,
+          "isSecret": false,
+          "expands": false,
+          "note": ""
+        }
+      ]
+    }
+  ]
+}

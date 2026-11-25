@@ -144,12 +144,25 @@ public sealed class MainWindow : Window
         var newProject = UI.Button("New Project", () => _ = Dialogs.NewProject(state), glyph: UI.Add);
         UI.SetToolTip(newProject, "New project (Ctrl+Shift+N)");
         var scan = UI.IconButton(UI.Import, "Import projects from a folder (Ctrl+Shift+I)", () => _ = Dialogs.ScanProjects(state));
-        var grid = new Grid { Margin = new Thickness(12, 8, 12, 12) };
+        // Backups of everything, which Envy on a Mac can restore too.
+        var more = UI.IconButton(UI.More, "Back up or restore everything", () => { });
+        var menu = new MenuFlyout();
+        var backUp = new MenuFlyoutItem { Text = "Back Up Everything…", KeyboardAcceleratorTextOverride = "Ctrl+Shift+B" };
+        backUp.Click += (_, _) => _ = Dialogs.BackUp(state);
+        var restore = new MenuFlyoutItem { Text = "Restore from Backup…" };
+        restore.Click += (_, _) => _ = Dialogs.Restore(state);
+        menu.Items.Add(backUp);
+        menu.Items.Add(restore);
+        more.Flyout = menu;
+        var grid = new Grid { Margin = new Thickness(12, 8, 12, 12), ColumnSpacing = 4 };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.Children.Add(newProject);
         Grid.SetColumn(scan, 1);
         grid.Children.Add(scan);
+        Grid.SetColumn(more, 2);
+        grid.Children.Add(more);
         return grid;
     }
 
@@ -384,6 +397,7 @@ public sealed class MainWindow : Window
         Add(VirtualKey.I, ctrl, () => { if (SelectedProjectId is { } id) _ = Dialogs.Import(state, id, ""); });
         Add(VirtualKey.I, ctrlShift, () => _ = Dialogs.ScanProjects(state));
         Add(VirtualKey.E, ctrlShift, () => { if (SelectedProjectId is { } id) _ = Dialogs.Export(state, id); });
+        Add(VirtualKey.B, ctrlShift, () => _ = Dialogs.BackUp(state));
         Add(VirtualKey.Z, ctrl, state.Store.Undo);
         Add(VirtualKey.Y, ctrl, state.Store.Redo);
         Add(VirtualKey.Z, ctrlShift, state.Store.Redo);
