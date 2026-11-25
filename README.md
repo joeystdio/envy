@@ -109,7 +109,7 @@ envy help                          # everything else
 
 - **🔒 Secret**: stored in the Keychain and masked in the app.
 - **💲 Expand**: the value is evaluated like a double-quoted shell string, so `$HOME/bin:$PATH`, `${OTHER}`, `~` and `$(command)` work. Off by default, so values pass through literally.
-- **Shortcuts**: ⌘N new variable, ⇧⌘N new project, ⌘I import `.env`, ⇧⌘I import projects from a folder, ⇧⌘E export `.env`, ⌘Z undo.
+- **Shortcuts**: ⌘N new variable, ⇧⌘N new project, ⌘I import `.env`, ⇧⌘I import projects from a folder, ⇧⌘E export `.env`, ⇧⌘B back up everything, ⌘Z undo.
 
 <details>
 <summary><strong>How the shell hook works</strong></summary>

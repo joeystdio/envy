@@ -17,6 +17,8 @@ enum AppSheet: Identifiable {
     case editVariable(UUID, UUID)
     case importEnv(UUID, String)
     case copyFrom(UUID)
+    case backUp
+    case restoreBackup(ChosenBackup)
 
     var id: String {
         switch self {
@@ -28,6 +30,8 @@ enum AppSheet: Identifiable {
         case .editVariable(let p, let v): "edit-\(p)-\(v)"
         case .importEnv(let p, _): "import-\(p)"
         case .copyFrom(let p): "copy-\(p)"
+        case .backUp: "back-up"
+        case .restoreBackup(let backup): "restore-\(backup.id)"
         }
     }
 }
@@ -419,6 +423,44 @@ final class Store {
         } catch {
             NSAlert(error: error).runModal()
         }
+    }
+
+    // MARK: Backups
+
+    /// Everything, secrets included, for a backup file. Refuses while the secrets can't be read, since the backup
+    /// would hold them empty.
+    func backupContent() throws -> BackupContent {
+        guard !secretsLocked else {
+            throw BackupError("Envy can't read your secrets from the Keychain, so a backup would leave them out. Choose Try Again first.")
+        }
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+        return Backup.content(of: config, home: paths.home.path, app: "Envy \(version)", created: Date())
+    }
+
+    /// What restoring would do, without changing anything.
+    func previewRestore(_ backup: BackupContent, mode: RestoreMode, fixes: [ExpandFix]) -> RestoreReport {
+        var copy = config
+        return BackupRestore.apply(backup, to: &copy, mode: mode, home: paths.home.path, fixes: fixes)
+    }
+
+    /// Restores `backup` as one undoable step, saved right away: settings to disk, secrets to the Keychain.
+    @discardableResult
+    func restoreBackup(_ backup: BackupContent, mode: RestoreMode, fixes: [ExpandFix]) throws -> RestoreReport {
+        guard !secretsLocked else {
+            throw BackupError("Envy can't read your secrets from the Keychain, so it can't restore them. Choose Try Again first.")
+        }
+        let home = paths.home.path
+        var report = RestoreReport()
+        perform("Restore Backup") { report = BackupRestore.apply(backup, to: &$0, mode: mode, home: home, fixes: fixes) }
+        saveNow()
+        selection = .project(Project.globalID)
+        return report
+    }
+
+    /// Asks for a backup file and opens the restore sheet for it.
+    func chooseBackupToRestore() {
+        guard let chosen = Panels.openBackup() else { return }
+        activeSheet = .restoreBackup(chosen)
     }
 
     // MARK: Shell integration

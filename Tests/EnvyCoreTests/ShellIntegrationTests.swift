@@ -117,6 +117,32 @@ final class ShellIntegrationTests: XCTestCase {
         }
     }
 
+    /// A backup from Windows, restored with the suggested rewrites: a Windows folder and rewritten values don't break
+    /// the hook, the rewrites expand, and a value whose Expand was turned off stays literal.
+    func testRestoredWindowsBackupWorksInTheShell() throws {
+        let sample = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("spec/backup-samples/windows.envybackup")
+        let backup = try Backup.read(Data(contentsOf: sample), password: "correct horse battery")
+        let fixes = BackupRestore.expandIssues(backup, here: Backup.macOS).map {
+            ExpandFix(scope: $0.scope, index: $0.index, action: $0.defaultAction, value: $0.suggestion)
+        }
+        var config = EnvConfig()
+        BackupRestore.apply(backup, to: &config, mode: .add, home: root.path, fixes: fixes)
+        let api = try folder("code/api")
+        XCTAssertEqual(config.projects.map(\.folders), [[api], [], [#"D:\work\site"#]])
+        try write(config)
+        let script = """
+        __envy_hook
+        printf '%s|%s|%s|%s|%s\\n' "$WHO" "$JAVA_BIN" "${PATH%%:*}" "${SITE_ENV-unset}" "${API_URL-unset}"
+        cd "$API"; __envy_hook
+        printf '%s|%s\\n' "$PORT" "$API_URL"
+        """
+        for shell in shells {
+            let out = try run(shell, script, env: ["API": api, "JAVA_HOME": "/jdk"])
+            XCTAssertEqual(out, "$(whoami)|/jdk/bin|\(root.path)/bin|unset|unset\n4000|http://localhost:4000/api\n", shell)
+        }
+    }
+
     func testDeeperFolderWinsOverShallowerAndAlwaysOn() throws {
         let a = try folder("a")
         let ab = try folder("a/b")

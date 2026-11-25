@@ -19,6 +19,8 @@ struct OnboardingView: View {
     @State private var chosenAgents = Set<String>()
     @State private var installedAgents: [String]?
     @State private var agentError: String?
+    @State private var restoring: ChosenBackup?
+    @State private var restored = false
 
     private var steps: [Step] {
         [.welcome, .connect] + (exports.isEmpty ? [] : [.secrets]) + (store.presentAgents.isEmpty ? [] : [.agents]) + [.projects, .done]
@@ -108,6 +110,30 @@ struct OnboardingView: View {
             } label: {
                 Text("Your setup")
             }
+            // On a new Mac: bring everything over first, then connect the terminal here.
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Image(systemName: restored ? "checkmark.circle.fill" : "arrow.down.doc")
+                    .foregroundStyle(restored ? Color.green : Color.secondary)
+                Text(restored
+                     ? "Restored from your backup. Continue to connect your terminal on this Mac."
+                     : "Moving from another computer? Restore your projects, variables and secrets from an Envy backup made on a Mac or a PC.")
+                    .foregroundStyle(restored ? Color.primary : Color.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer()
+                if !restored {
+                    Button("Restore from a Backup…") { restoring = Panels.openBackup() }
+                }
+            }
+        }
+        .sheet(item: $restoring) { backup in
+            RestoreBackupSheet(backup: backup) {
+                restored = true
+                // Global may now hold what the startup files export.
+                exports = store.plaintextExports()
+                chosenExports = Set(exports.filter(\.variable.isSecret).map(\.id))
+                move(1)
+            }
+            .environment(store)
         }
     }
 

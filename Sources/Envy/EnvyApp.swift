@@ -59,6 +59,10 @@ struct EnvyCommands: Commands {
             }
             .keyboardShortcut("e", modifiers: [.command, .shift])
             .disabled(store.selectedProjectID == nil)
+            Divider()
+            Button("Back Up Everything…") { store.activeSheet = .backUp }
+                .keyboardShortcut("b", modifiers: [.command, .shift])
+            Button("Restore from Backup…") { store.chooseBackupToRestore() }
         }
     }
 }

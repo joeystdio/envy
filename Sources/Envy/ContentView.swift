@@ -49,6 +49,8 @@ struct ContentView: View {
         case .editVariable(let project, let variable): VariableEditorSheet(projectID: project, variableID: variable)
         case .importEnv(let project, let text): ImportSheet(projectID: project, text: text)
         case .copyFrom(let project): CopyFromProjectSheet(targetID: project)
+        case .backUp: BackUpSheet()
+        case .restoreBackup(let backup): RestoreBackupSheet(backup: backup)
         }
     }
 }
