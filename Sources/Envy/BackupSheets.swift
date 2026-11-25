@@ -262,7 +262,7 @@ struct RestoreBackupSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("Made on \(origin(content))\(madeOn(content))\(content.app.isEmpty ? "" : " by \(content.app)"): Global and \(plural(content.projects.count, "project", "projects")), \(plural(variables, "variable", "variables")).")
                         .fixedSize(horizontal: false, vertical: true)
-                    // Plain text labels: anything richer leaves the radio buttons without a title or a press action.
+                    // Plain text labels: with two-line labels the radio buttons couldn't be pressed through accessibility.
                     VStack(alignment: .leading, spacing: 6) {
                         Picker("Restore by", selection: $mode) {
                             Text("Add to what's here").tag(RestoreMode.add)
@@ -289,7 +289,8 @@ struct RestoreBackupSheet: View {
                 }
                 .padding(20)
             }
-            .frame(height: issues.isEmpty ? 400 : 560)
+            // Fits the main window at its smallest; longer lists scroll.
+            .frame(height: 380)
             Divider()
             HStack {
                 if let failure {
