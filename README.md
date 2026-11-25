@@ -202,7 +202,7 @@ VERSION=1.0.2 scripts/release.sh
 gh release create v1.0.2 dist/Envy.dmg --title "Envy 1.0.2" --generate-notes
 ```
 
-The DMG keeps the same name for every version, so the download links above always serve the newest release. Update `version` and `sha256` in the [Homebrew cask](https://github.com/joeystdio/homebrew-tap/blob/main/Casks/envy.rb) too. Publishing the release also starts the Windows workflow, which attaches `Envy-Setup.exe`.
+The DMG keeps the same name for every version, so the download links above always serve the newest release. Update `version` and `sha256` in the [Homebrew cask](https://github.com/joeystdio/homebrew-tap/blob/main/Casks/envy.rb) too. Publishing the release also starts the Windows workflow, which attaches `Envy-Setup.exe` and then opens the pull request that brings the new version to winget ([windows/winget](windows/winget/README.md)).
 </details>
 
 ---
