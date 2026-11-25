@@ -15,6 +15,10 @@ AppVersion={#AppVersion}
 AppVerName=Envy {#AppVersion}
 AppPublisher=Joey Stevense
 AppPublisherURL=https://github.com/joeystdio/envy
+; Product name and version on Envy-Setup.exe itself, which code signing checks.
+VersionInfoProductName=Envy
+VersionInfoVersion={#AppVersion}
+VersionInfoProductTextVersion={#AppVersion}
 AppSupportURL=https://github.com/joeystdio/envy/issues
 DefaultDirName={autopf}\Envy
 DisableProgramGroupPage=yes

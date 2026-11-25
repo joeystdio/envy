@@ -48,6 +48,8 @@ jobs:
     needs: test
     permissions:
       contents: write
+      # SignPath reads the uploaded unsigned files through this token.
+      actions: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -110,6 +112,59 @@ jobs:
         with:
           name: screenshots
           path: windows/artifacts/smoke
+      # Code signing through SignPath Foundation (windows/signing/README.md), for releases only, once the repository has
+      # the SIGNPATH_API_TOKEN secret and the SIGNPATH_ORGANIZATION_ID variable. Until then everything stays unsigned.
+      - name: Code signing
+        id: signing
+        shell: pwsh
+        env:
+          HAS_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN != '' }}
+          ORGANIZATION: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+        run: |
+          $sign = '${{ steps.version.outputs.tag }}' -ne '' -and $env:HAS_TOKEN -eq 'true' -and $env:ORGANIZATION -ne ''
+          "sign=$($sign.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+          if ($sign) { 'Signing this release through SignPath; each signing request waits for approval there.' }
+          elseif ('${{ steps.version.outputs.tag }}' -ne '') { 'Not signed: SignPath is not set up for this repository yet.' }
+          else { 'Not signed: only releases are signed.' }
+      - name: Collect Envy's own executables
+        if: steps.signing.outputs.sign == 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/unsigned-app/cli | Out-Null
+          Copy-Item artifacts/publish/Envy.exe, artifacts/publish/Envy.dll, artifacts/publish/Envy.Core.dll artifacts/unsigned-app/
+          Copy-Item artifacts/publish/cli/envy.exe artifacts/unsigned-app/cli/
+      - name: Upload them for signing
+        if: steps.signing.outputs.sign == 'true'
+        id: unsigned-app
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-app
+          path: windows/artifacts/unsigned-app
+      - name: Sign them
+        if: steps.signing.outputs.sign == 'true'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'envy' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
+          artifact-configuration-slug: envy-app
+          github-artifact-id: ${{ steps.unsigned-app.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 21600
+          output-artifact-directory: windows/artifacts/signed-app
+          parameters: |
+            version: "${{ steps.version.outputs.version }}"
+      - name: Put the signed executables in the app
+        if: steps.signing.outputs.sign == 'true'
+        shell: pwsh
+        run: |
+          Copy-Item artifacts/signed-app/* artifacts/publish/ -Recurse -Force
+          foreach ($file in 'Envy.exe', 'Envy.dll', 'Envy.Core.dll', 'cli/envy.exe') {
+            $signature = Get-AuthenticodeSignature (Join-Path artifacts/publish $file)
+            "{0}: {1} ({2})" -f $file, $signature.Status, $signature.SignerCertificate.Subject
+            if ($signature.Status -ne 'Valid') { throw "$file isn't signed" }
+          }
       - name: Build the installer
         shell: pwsh
         run: |
@@ -117,6 +172,36 @@ jobs:
           if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
           & $iscc /Qp "/DAppVersion=${{ steps.version.outputs.version }}" installer/Envy.iss
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Upload the installer for signing
+        if: steps.signing.outputs.sign == 'true'
+        id: unsigned-installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-installer
+          path: windows/artifacts/Envy-Setup.exe
+      - name: Sign the installer
+        if: steps.signing.outputs.sign == 'true'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'envy' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
+          artifact-configuration-slug: envy-installer
+          github-artifact-id: ${{ steps.unsigned-installer.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 21600
+          output-artifact-directory: windows/artifacts/signed-installer
+          parameters: |
+            version: "${{ steps.version.outputs.version }}"
+      - name: Use the signed installer
+        if: steps.signing.outputs.sign == 'true'
+        shell: pwsh
+        run: |
+          Copy-Item artifacts/signed-installer/Envy-Setup.exe artifacts/Envy-Setup.exe -Force
+          $signature = Get-AuthenticodeSignature artifacts/Envy-Setup.exe
+          "Envy-Setup.exe: {0} ({1})" -f $signature.Status, $signature.SignerCertificate.Subject
+          if ($signature.Status -ne 'Valid') { throw "Envy-Setup.exe isn't signed" }
       - uses: actions/upload-artifact@v4
         with:
           name: Envy-Setup
