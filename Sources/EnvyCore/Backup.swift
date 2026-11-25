@@ -325,8 +325,9 @@ struct BackupFile: Decodable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         format = try c.decodeIfPresent(String.self, forKey: .format) ?? ""
-        version = try c.decodeIfPresent(Int.self, forKey: .version) ?? 0
-        // Leniently, so a newer version is reported as such even if these changed shape; wrong ones are damage.
+        // The rest leniently: once the format is right, a field that is missing or of the wrong type is damage, and
+        // a newer version is reported as such even if the other fields changed shape.
+        version = (try? c.decodeIfPresent(Int.self, forKey: .version)) ?? 0
         kdf = (try? c.decodeIfPresent(Kdf.self, forKey: .kdf)) ?? Kdf()
         cipher = (try? c.decodeIfPresent(Cipher.self, forKey: .cipher)) ?? Cipher()
         data = (try? c.decodeIfPresent(String.self, forKey: .data)) ?? ""
@@ -555,11 +556,12 @@ public enum BackupRestore {
             let powerShell = #/\$env:([A-Za-z_][A-Za-z0-9_]*)/#.ignoresCase()
             if suggestion.contains(percent) || suggestion.contains(powerShell) {
                 reasons.append("A Mac doesn't understand %NAME% or $env:NAME.")
-                suggestion = suggestion.replacing(percent) { match in
-                    let name = String(match.output.1)
-                    return name.caseInsensitiveCompare("USERPROFILE") == .orderedSame ? "$HOME" : "${\(name)}"
+                // The user profile is the home folder; any other name becomes ${NAME}.
+                func mac(_ name: Substring) -> String {
+                    name.caseInsensitiveCompare("USERPROFILE") == .orderedSame ? "$HOME" : "${\(name)}"
                 }
-                suggestion = suggestion.replacing(powerShell) { "${\($0.output.1)}" }
+                suggestion = suggestion.replacing(percent) { mac($0.output.1) }
+                suggestion = suggestion.replacing(powerShell) { mac($0.output.1) }
             }
             if pathList && suggestion.contains(";") {
                 reasons.append("A Mac separates folders with :.")

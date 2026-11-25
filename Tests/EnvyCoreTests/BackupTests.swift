@@ -65,6 +65,8 @@ final class BackupTests: XCTestCase {
         XCTAssertEqual(error(Data("[1, 2]".utf8)), "This isn't an Envy backup.")
         XCTAssertEqual(error(Data(#"{"format": "something-else", "version": 1}"#.utf8)), "This isn't an Envy backup.")
         XCTAssertEqual(error(Data(#"{"version": 1}"#.utf8)), "This isn't an Envy backup.")
+        XCTAssertEqual(error(Data(#"{"format": 1, "version": 1}"#.utf8)), "This isn't an Envy backup.")
+        XCTAssertEqual(error(Data(#""envy-backup""#.utf8)), "This isn't an Envy backup.")
         // A newer version is reported as such even when everything else changed.
         XCTAssertEqual(error(Data(#"{"format": "envy-backup", "version": 2, "kdf": "argon2"}"#.utf8)), "This backup was made by a newer version of Envy. Update Envy to restore it.")
 
@@ -78,6 +80,11 @@ final class BackupTests: XCTestCase {
         XCTAssertEqual(error(edited("s5e1gcIf9JZ9xuuV", "not base64!")), damaged)
         XCTAssertEqual(error(edited(#""version": 1"#, #""version": 0"#)), damaged)
         XCTAssertEqual(error(Data(#"{"format": "envy-backup", "version": 1}"#.utf8)), damaged)
+        // With the right format, a field that is missing or of the wrong type is damage.
+        XCTAssertEqual(error(Data(#"{"format": "envy-backup"}"#.utf8)), damaged)
+        XCTAssertEqual(error(edited(#""version": 1"#, #""version": "1""#)), damaged)
+        XCTAssertEqual(error(edited(#""iterations": 600000"#, #""iterations": "600000""#)), damaged)
+        XCTAssertEqual(error(edited(#""nonce": "s5e1gcIf9JZ9xuuV""#, #""nonce": 12"#)), damaged)
         let short = Data(#"{"format": "envy-backup", "version": 1, "kdf": {"name": "PBKDF2-HMAC-SHA256", "iterations": 100000, "salt": "UU/k76wNJP2w1tI65q/vEg=="}, "cipher": {"name": "AES-256-GCM", "nonce": "s5e1gcIf9JZ9xuuV"}, "data": "AAAAAAAAAAAAAAAAAAAA"}"#.utf8)
         XCTAssertEqual(error(short), damaged) // 15 bytes of data: shorter than a tag
 
@@ -336,7 +343,8 @@ final class BackupTests: XCTestCase {
         // From Windows
         XCTAssertEqual(mac("A", "%userprofile%\\x"), "$HOME/x")
         XCTAssertEqual(mac("A", "$ENV:Home\\x"), "${Home}/x")
-        XCTAssertEqual(mac("A", "$env:USERPROFILE"), "${USERPROFILE}")
+        XCTAssertEqual(mac("A", "$ENV:userprofile"), "$HOME")
+        XCTAssertEqual(mac("TOOLS_PATH", #"$env:USERPROFILE\tools;%userprofile%\bin"#), "$HOME/tools:$HOME/bin")
         XCTAssertEqual(mac("A", "%1abc% %not a name% %OK%"), "%1abc% %not a name% ${OK}")
         XCTAssertNil(mac("A", "%1abc% 50%"))
         XCTAssertNil(mac("A", "${HOME}/x ~/y $NAME"))
