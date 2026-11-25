@@ -74,7 +74,7 @@ brew install --cask envy
 2. Run it. It installs for you only (in `%LOCALAPPDATA%\Programs\Envy`) and needs no admin rights.
 3. Envy opens and its Setup Assistant connects PowerShell, Git Bash and Command Prompt, teaches your coding agents about Envy, and imports your projects.
 
-> The Windows installer isn't code-signed yet, so Microsoft Defender SmartScreen warns about an unknown publisher the first time. Click **More info**, then **Run anyway**. If your browser blocks the download, choose **Keep** in its download list.
+> The Windows installer isn't code-signed yet, so Microsoft Defender SmartScreen warns about an unknown publisher the first time. Click **More info**, then **Run anyway**. If your browser blocks the download, choose **Keep** in its download list. Signing through SignPath Foundation is being set up: see the [code signing policy](CODE_SIGNING_POLICY.md).
 
 **Uninstalling:** Settings → Apps → Installed apps → **Envy** → Uninstall. It takes Envy's line out of your PowerShell profiles and `~/.bashrc` and its part out of Command Prompt's AutoRun, and removes the generated shell files, the `envy` command and the coding agent instructions. Your settings (`%APPDATA%\Envy`) and secrets (Credential Manager, `Envy/…`) stay, so reinstalling brings everything back.
 
@@ -225,3 +225,5 @@ Envy is 100% free and open-source. If it keeps your secrets out of your dotfiles
 ## 📄 License
 
 MIT License — completely free and open source forever.
+
+**[Code signing policy](CODE_SIGNING_POLICY.md):** free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
