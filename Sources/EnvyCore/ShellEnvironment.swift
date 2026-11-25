@@ -52,6 +52,8 @@ public struct ShellInspection: Equatable, Sendable {
     public var hookLoaded: Bool
     /// Display names of the coding agents found on the shell's PATH.
     public var agents: [String]
+    /// Where agents keep their settings, when the shell overrides it (`CODEX_HOME` and the like).
+    public var agentFolders: [String: String] = [:]
 }
 
 /// Runs short scripts in the user's own shell, outside the app's environment.
@@ -68,14 +70,21 @@ public enum ShellProbe {
         let script = """
         if type __envy_hook >/dev/null 2>&1; then echo hook:yes; else echo hook:no; fi > "$ENVY_PROBE_OUT"
         for c in \(commands); do command -v "$c" >/dev/null 2>&1 && echo "agent:$c" >> "$ENVY_PROBE_OUT"; done
+        \(AgentInstructions.configVariables.map { "[ -n \"${\($0)-}\" ] && printf 'folder:\($0)=%s\\n' \"$\($0)\" >> \"$ENVY_PROBE_OUT\"" }.joined(separator: "\n"))
         :
         """
         guard let out = run(shell, arguments: ["-l", "-i", "-c"], script: script, home: home, timeout: timeout) else { return nil }
         let lines = Set(out.split(separator: "\n").map(String.init))
         guard lines.contains("hook:yes") || lines.contains("hook:no") else { return nil }
+        var folders: [String: String] = [:]
+        for line in lines where line.hasPrefix("folder:") {
+            let pair = line.dropFirst("folder:".count).split(separator: "=", maxSplits: 1).map(String.init)
+            if pair.count == 2 { folders[pair[0]] = pair[1] }
+        }
         return ShellInspection(
             hookLoaded: lines.contains("hook:yes"),
-            agents: knownAgents.filter { lines.contains("agent:\($0.command)") }.map(\.name)
+            agents: knownAgents.filter { lines.contains("agent:\($0.command)") }.map(\.name),
+            agentFolders: folders
         )
     }
 

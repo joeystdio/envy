@@ -11,14 +11,21 @@ public enum ShellOutputError: LocalizedError, Equatable {
     }
 }
 
-/// Writes `init.sh`, `vars.sh` and `state` into the shell directory (normally `~/.config/envy`).
+/// Writes `init.sh`, `vars.sh` and `state` into the shell directory (normally `~/.config/envy`), and with an
+/// `executable`, the `bin/envy` launcher that runs it as the envy command.
 public struct ShellOutput {
     public let directory: URL
+    public var executable: String?
+    /// Exported by the launcher, e.g. `ENVY_HOME` for a sandbox.
+    public var environment: [String: String]
 
-    public init(directory: URL) {
+    public init(directory: URL, executable: String? = nil, environment: [String: String] = [:]) {
         self.directory = directory
+        self.executable = executable
+        self.environment = environment
     }
 
+    public var launcherURL: URL { directory.appendingPathComponent("bin/envy") }
     public var hookURL: URL { directory.appendingPathComponent("init.sh") }
     public var varsURL: URL { directory.appendingPathComponent("vars.sh") }
     public var stateURL: URL { directory.appendingPathComponent("state") }
@@ -35,6 +42,13 @@ public struct ShellOutput {
         if (try? String(contentsOf: hookURL, encoding: .utf8)) != ShellScript.hook {
             try Self.atomicWrite(ShellScript.hook, to: hookURL, permissions: 0o644)
         }
+        if let executable {
+            let launcher = Self.launcher(executable: executable, environment: environment)
+            if (try? String(contentsOf: launcherURL, encoding: .utf8)) != launcher {
+                try fm.createDirectory(at: launcherURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try Self.atomicWrite(launcher, to: launcherURL, permissions: 0o755)
+            }
+        }
 
         let vars = ShellScript.vars(for: config)
         if (try? String(contentsOf: varsURL, encoding: .utf8)) == vars, fm.fileExists(atPath: stateURL.path) {
@@ -46,6 +60,17 @@ public struct ShellOutput {
         try Self.atomicWrite(vars, to: varsURL, permissions: 0o600)
         try Self.atomicWrite(UUID().uuidString + "\n", to: stateURL, permissions: 0o600)
         return true
+    }
+
+    /// A script that runs the app's executable as the envy command. Rewritten at every launch, so it follows
+    /// the app when it moves.
+    public static func launcher(executable: String, environment: [String: String] = [:]) -> String {
+        var script = "#!/bin/sh\n# The envy command, for terminals, scripts and coding agents. Written by Envy.app; local changes are overwritten.\n"
+        for (key, value) in environment.sorted(by: { $0.key < $1.key }) {
+            script += "export \(key)=\(ShellScript.singleQuoted(value))\n"
+        }
+        script += "exec \(ShellScript.singleQuoted(executable)) --cli \"$@\"\n"
+        return script
     }
 
     /// Names the expanding variable that breaks the script, which is the only way user input can.

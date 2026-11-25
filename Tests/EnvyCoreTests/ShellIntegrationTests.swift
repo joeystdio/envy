@@ -228,4 +228,42 @@ final class ShellIntegrationTests: XCTestCase {
         let attributes = try FileManager.default.attributesOfItem(atPath: shellDir.appendingPathComponent("vars.sh").path)
         XCTAssertEqual((attributes[.posixPermissions] as? NSNumber)?.intValue, 0o600)
     }
+
+    func testPutsTheEnvyCommandOnPathAndHandsItOtherSubcommands() throws {
+        // A stand-in for the app: prints its arguments and whether it was reached through PATH.
+        let fake = root.appendingPathComponent("fake-envy")
+        try "#!/bin/sh\necho \"app:$*\"\n".write(to: fake, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fake.path)
+        var cfg = EnvConfig()
+        cfg.global.variables = [EnvVar(key: "A", value: "1")]
+        try ShellOutput(directory: shellDir, executable: fake.path).write(cfg)
+        let launcher = shellDir.appendingPathComponent("bin/envy")
+        XCTAssertEqual((try FileManager.default.attributesOfItem(atPath: launcher.path)[.posixPermissions] as? NSNumber)?.intValue, 0o755)
+
+        for shell in shells {
+            let out = try run(shell, """
+            . "$ENVY_DIR/init.sh"
+            case ":$PATH:" in *":$ENVY_DIR/bin:$ENVY_DIR/bin:"*) echo twice ;; *":$ENVY_DIR/bin:"*) echo once ;; esac
+            envy list api
+            envy status
+            sh -c 'envy set B=2 --global'
+            """)
+            XCTAssertTrue(out.contains("once\n"), "\(shell): \(out)")
+            XCTAssertTrue(out.contains("app:--cli list api\n"), "\(shell): \(out)")
+            XCTAssertTrue(out.contains("Envy: Global"), "\(shell): status stays in the shell: \(out)")
+            XCTAssertTrue(out.contains("app:--cli set B=2 --global\n"), "\(shell): child processes find it on PATH: \(out)")
+        }
+
+        // A copy of the functions without the variables, the way some tools snapshot a shell.
+        for shell in shells {
+            let out = try run(shell, """
+            . "$ENVY_DIR/init.sh"
+            unset __envy_dir __envy_gen __envy_sig __envy_active
+            envy list
+            envy
+            """)
+            XCTAssertTrue(out.contains("app:--cli list\n"), "\(shell): \(out)")
+            XCTAssertTrue(out.contains("app:--cli status\n"), "\(shell): \(out)")
+        }
+    }
 }

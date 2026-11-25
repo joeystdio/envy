@@ -39,36 +39,43 @@
 - **📂 Folder-aware, direnv-style**: Link a project to a folder and its variables load the moment a terminal `cd`s in, and unload when it leaves. Anything they overrode gets its old value back.
 - **🎚️ One-click on/off**: Switch a whole project or a single variable on or off, from the window or the **menu bar**. Open terminals pick it up at their next prompt, no restart needed.
 - **🤖 Built for coding agents**: Claude Code, Codex, Cursor CLI, Gemini CLI, Aider and friends get exactly what's switched on for the folder you start them in, and nothing else.
+- **🧠 Agents know how to use it**: Envy teaches your agents the `envy` command. They check what's loaded, add settings, import a `.env` without seeing its values, and when they need a secret they open Envy for **you** to paste it, instead of asking for it in the chat. Claude Code gets a rule; Codex, Gemini CLI, Cursor, Copilot CLI, opencode, Amp and Goose share one skill in `~/.agents/skills`. Envy only writes its own files, never your instructions.
 - **📥 Import everything**:
   - Scan a whole folder of code at once for `.env`, `.env.local` and `.envrc` files.
   - **.NET**: `appsettings.json`, `appsettings.Development.json` and `dotnet user-secrets`, flattened the way .NET reads them (`ConnectionStrings:Default` → `ConnectionStrings__Default`).
   - Paste or drop `.env` text, copy variables between projects, export back to `.env`.
-- **🧭 Setup Assistant**: Detects your shell (zsh or bash, `ZDOTDIR`, dotfile symlinks) and the coding agents you have installed. It then connects your terminal, checks that a fresh shell loads Envy, and moves plain-text secrets out of your startup files into the Keychain.
+- **🧭 Setup Assistant**: Detects your shell (zsh or bash, `ZDOTDIR`, dotfile symlinks) and the coding agents you have installed. It then connects your terminal, checks that a fresh shell loads Envy, moves plain-text secrets out of your startup files into the Keychain, and teaches your coding agents about Envy.
 
 ---
 
 ## 📦 Installation
 
-### Option 1: Homebrew (Recommended)
+### 🍎 macOS (15 or later, Apple Silicon and Intel)
+
+#### Option 1: Homebrew (Recommended)
 ```bash
 brew tap joeystdio/tap
 brew install --cask envy
 ```
 
-### Option 2: Direct Download (`.dmg`)
+#### Option 2: Direct Download (`.dmg`)
 1. Download [**`Envy.dmg`**](https://github.com/joeystdio/envy/releases/latest/download/Envy.dmg) from the [latest release](https://github.com/joeystdio/envy/releases/latest).
 2. Open `Envy.dmg` and drag **Envy.app** into your **Applications** folder.
 3. Launch **Envy**. The Setup Assistant connects your terminal and imports your projects.
 
 > Envy is signed with a Developer ID and **notarized by Apple**, so it opens without any Gatekeeper warnings.
 
-### 🪟 Windows: Direct Download (`Envy-Setup.exe`)
+**Uninstalling:** in Envy's Shell Integration, disconnect your startup files and remove the coding agent instructions first. `brew uninstall --zap --cask envy` also removes Envy's settings, shell files and agent instructions.
+
+### 🪟 Windows (10 and 11, x64)
+
 1. Download [**`Envy-Setup.exe`**](https://github.com/joeystdio/envy/releases/latest/download/Envy-Setup.exe) from the [latest release](https://github.com/joeystdio/envy/releases/latest).
 2. Run it. It installs for you only (in `%LOCALAPPDATA%\Programs\Envy`) and needs no admin rights.
-3. Envy opens and its Setup Assistant connects your shells and imports your projects.
+3. Envy opens and its Setup Assistant connects PowerShell, Git Bash and Command Prompt, teaches your coding agents about Envy, and imports your projects.
 
 > The Windows installer isn't code-signed yet, so Microsoft Defender SmartScreen warns about an unknown publisher the first time. Click **More info**, then **Run anyway**. If your browser blocks the download, choose **Keep** in its download list.
 
+**Uninstalling:** Settings → Apps → Installed apps → **Envy** → Uninstall. It takes Envy's line out of your PowerShell profiles and `~/.bashrc` and its part out of Command Prompt's AutoRun, and removes the generated shell files, the `envy` command and the coding agent instructions. Your settings (`%APPDATA%\Envy`) and secrets (Credential Manager, `Envy/…`) stay, so reinstalling brings everything back.
 
 ---
 
@@ -84,13 +91,20 @@ Envy adds one marked line to `~/.zshrc` (and/or `~/.bashrc`, `~/.bash_profile`).
 
 Later wins: Global, then always-on projects (sidebar order), then folder projects (deepest folder last).
 
-In a terminal:
+In a terminal, or from a script or coding agent:
 
 ```bash
-envy status   # which projects and variables are loaded here
-envy reload   # reload right now
-envy open     # open the app
+envy status                        # what loads here, and whether this process has it
+envy list [PROJECT]                # projects and variables (secret values are never shown)
+envy set PORT=4000                 # add or update a plain variable in this folder's project
+envy add OPENAI_API_KEY --secret   # opens Envy so you can paste the value into the Keychain
+envy import .env                   # move a .env into Envy; secrets go to the Keychain
+envy project add api --folder .    # a project that loads inside this folder
+envy exec -- npm start             # run something with the latest values for this folder
+envy help                          # everything else
 ```
+
+`envy set`, `remove`, `on`/`off` and `import` go to the project linked to the current folder; add `--project NAME` or `--global` for another. Every change goes through the running app (Envy starts in the background if it isn't open), and agents can't read or set secret values: `envy add NAME --secret` asks you. `envy reload` reloads the current terminal right away. On Windows the same commands work in PowerShell, Git Bash and Command Prompt, and secrets go to Credential Manager.
 
 - **🔒 Secret**: stored in the Keychain and masked in the app.
 - **💲 Expand**: the value is evaluated like a double-quoted shell string, so `$HOME/bin:$PATH`, `${OTHER}`, `~` and `$(command)` work. Off by default, so values pass through literally.
@@ -99,7 +113,7 @@ envy open     # open the app
 <details>
 <summary><strong>How the shell hook works</strong></summary>
 
-The line in your startup file sources `~/.config/envy/init.sh`. The app regenerates `~/.config/envy/vars.sh` (mode 600) whenever you change something. At every prompt, and on `cd` in zsh, the hook checks a generation stamp and the current folder. When either changed, it puts back everything it set earlier and applies the current set. New tabs, tmux panes and editor terminals inherit what their parent applied and clean it up correctly.
+The line in your startup file sources `~/.config/envy/init.sh`, which also puts `~/.config/envy/bin` on your `PATH`: the `envy` command there runs the app's own executable and talks to the running app over a private socket (starting it in the background if needed), so agents started from your terminal can use it too. The app regenerates `~/.config/envy/vars.sh` (mode 600) whenever you change something. At every prompt, and on `cd` in zsh, the hook checks a generation stamp and the current folder. When either changed, it puts back everything it set earlier and applies the current set. New tabs, tmux panes and editor terminals inherit what their parent applied and clean it up correctly.
 
 Disconnecting from **Shell Integration** removes the line again; a copy of the previous file is kept as `<file>.envy-backup`.
 </details>
@@ -119,7 +133,6 @@ The Windows app is native too (WinUI 3, with Mica and a tray icon instead of the
 - **🧭 Setup Assistant**: finds PowerShell 7, Windows PowerShell, Git Bash and Command Prompt and the coding agents on their PATH, connects the shells and checks that a fresh one of each loads Envy. It also offers to move plain-text secrets out of your PowerShell profiles, `~/.bashrc` and your user environment variables into Credential Manager. Every file it changes keeps a copy as `<file>.envy-backup`.
 - **🤖 The `envy` command for coding agents**: connected shells put `envy.exe` on `PATH`, so agents (and scripts) can run `envy status`, `envy set`, `envy import .env` and `envy exec -- <command>`, and ask you for a secret with `envy add NAME --secret`, which opens Envy for you to paste it: the value never passes through the agent. Envy can also teach Claude Code (a rule in `~\.claude\rules`) and Codex, Gemini CLI, Copilot CLI and others (a skill in `~\.agents\skills`) to work this way. The command talks to the app over a named pipe only your account can open.
 - **💲 Expand on Windows** fills in `%NAME%`, `$NAME`, `${NAME}`, `$env:NAME` and a leading `~` (your user folder) when a shell loads the value, so `%USERPROFILE%\bin;%PATH%` works in all three shells. Commands such as `$(…)` are not run. Git Bash gets `PATH` converted to its `/c/…` form and back.
-- `envy status`, `envy reload` and `envy open` work in all three shells.
 - Windows PowerShell only runs profile scripts when your execution policy allows it. If it doesn't, Shell Integration offers to set it to `RemoteSigned` for your account.
 - Closing the window keeps Envy in the notification area; right-click its icon to switch Global or a project on or off. Quit from there too.
 

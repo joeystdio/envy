@@ -7,7 +7,7 @@ struct OnboardingView: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
 
-    private enum Step: Hashable { case welcome, connect, secrets, projects, done }
+    private enum Step: Hashable { case welcome, connect, secrets, agents, projects, done }
 
     @State private var step = Step.welcome
     @State private var includeBash = false
@@ -16,9 +16,12 @@ struct OnboardingView: View {
     @State private var chosenExports = Set<String>()
     @State private var importedExports: [RcExport]?
     @State private var importedProjects: Int?
+    @State private var chosenAgents = Set<String>()
+    @State private var installedAgents: [String]?
+    @State private var agentError: String?
 
     private var steps: [Step] {
-        [.welcome, .connect] + (exports.isEmpty ? [] : [.secrets]) + [.projects, .done]
+        [.welcome, .connect] + (exports.isEmpty ? [] : [.secrets]) + (store.presentAgents.isEmpty ? [] : [.agents]) + [.projects, .done]
     }
 
     private var shellName: String { (store.environment.supportedShell as NSString).lastPathComponent }
@@ -50,6 +53,7 @@ struct OnboardingView: View {
                 case .welcome: welcome
                 case .connect: connect
                 case .secrets: secrets
+                case .agents: agents
                 case .projects: projects
                 case .done: done
                 }
@@ -66,6 +70,7 @@ struct OnboardingView: View {
             exports = store.plaintextExports()
             chosenExports = Set(exports.filter(\.variable.isSecret).map(\.id))
             if store.inspection == .notChecked { await store.inspectShell() }
+            chosenAgents = Set(store.presentAgents.map(\.id))
         }
     }
 
@@ -103,6 +108,44 @@ struct OnboardingView: View {
             } label: {
                 Text("Your setup")
             }
+        }
+    }
+
+    private var agents: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Teach your coding agents").font(.title.weight(.bold))
+            Text("Agents started from your terminal already get your variables. These instructions tell them how to use Envy too: check what's loaded, add settings, and ask you for a secret in Envy instead of in the chat or a .env file. They never see secret values.")
+                .fixedSize(horizontal: false, vertical: true)
+            if let installedAgents {
+                Label("Done. Your coding agents now know about Envy; change this any time in Shell Integration.", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(store.presentAgents) { agent in
+                        Toggle(isOn: Binding(
+                            get: { chosenAgents.contains(agent.id) },
+                            set: { if $0 { chosenAgents.insert(agent.id) } else { chosenAgents.remove(agent.id) } }
+                        )) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(agentTitle(agent))
+                                Text("Adds \(store.displayPath(agent.file))")
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .toggleStyle(.checkbox)
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+            }
+            if let agentError {
+                Label(agentError, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            }
+            CopyableCommand(command: "envy help")
+            Spacer()
         }
     }
 
@@ -259,6 +302,15 @@ struct OnboardingView: View {
                 } else {
                     Button("Continue") { move(1) }.keyboardShortcut(.defaultAction)
                 }
+            case .agents:
+                if installedAgents == nil {
+                    Button("Skip") { move(1) }
+                    Button("Add Instructions") { installAgents() }
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(chosenAgents.isEmpty)
+                } else {
+                    Button("Continue") { move(1) }.keyboardShortcut(.defaultAction)
+                }
             case .projects:
                 Button(importedProjects == nil ? "Skip" : "Continue") { move(1) }.keyboardShortcut(.defaultAction)
             case .done:
@@ -282,6 +334,26 @@ struct OnboardingView: View {
             Task { await store.inspectShell() }
         } catch {
             connectError = error.localizedDescription
+        }
+    }
+
+    /// Names the agents found, since one skill folder reaches several of them.
+    private func agentTitle(_ agent: AgentTarget) -> String {
+        let found = store.foundAgents(agent)
+        guard agent.agents.count > 1 else { return agent.name }
+        guard !found.isEmpty else { return agent.name }
+        return found.count < agent.agents.count ? found.joined(separator: ", ") + " and other agents" : ListFormatter.localizedString(byJoining: found)
+    }
+
+    private func installAgents() {
+        let picked = store.presentAgents.filter { chosenAgents.contains($0.id) && store.agentStatus[$0.id] != .foreign }
+        do {
+            try store.installInstructions(picked)
+            store.dismissAgentOffer()
+            installedAgents = picked.map(\.name)
+            agentError = nil
+        } catch {
+            agentError = error.localizedDescription
         }
     }
 

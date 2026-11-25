@@ -24,6 +24,8 @@ struct AppPaths {
     var shellDirectory: URL { home.appendingPathComponent(".config/envy") }
     /// Exists once the Setup Assistant has been finished or postponed.
     var onboardedMarker: URL { configFile.deletingLastPathComponent().appendingPathComponent(".onboarded") }
+    /// Exists once the user answered the offer to teach coding agents about Envy.
+    var agentOfferMarker: URL { configFile.deletingLastPathComponent().appendingPathComponent(".agents-offered") }
 
     /// Common places to keep code, offered as one-click roots when looking for projects.
     var suggestedProjectRoots: [URL] {

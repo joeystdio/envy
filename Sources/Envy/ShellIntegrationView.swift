@@ -35,10 +35,19 @@ struct ShellIntegrationView: View {
             Section("Other shells") {
                 ForEach(store.otherTargets) { target in row(target, recommended: false) }
             }
+            Section {
+                ForEach(store.agentTargets) { agent in agentRow(agent) }
+            } header: {
+                Text("Coding agents")
+            } footer: {
+                Text("Teaches agents the envy command: where your variables come from, how to ask you for a secret without seeing it, and how to load a change. Claude Code reads it as a rule in every session; the other agents share one skill folder and load it when a task needs it. Envy writes only these files, never your own instructions.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Section("In a terminal") {
                 command("See what's loaded here", "envy status")
                 command("Reload right now", "envy reload")
-                command("Open this app", "envy open")
+                command("Everything else", "envy help")
             }
             Section("Generated files") {
                 LabeledContent("Location") {
@@ -116,6 +125,45 @@ struct ShellIntegrationView: View {
             Text(ListFormatter.localizedString(byJoining: result.agents))
         case .unavailable:
             Text("Couldn't check").foregroundStyle(.secondary)
+        }
+    }
+
+    private func agentRow(_ agent: AgentTarget) -> some View {
+        let status = store.agentStatus[agent.id] ?? .notInstalled
+        let present = store.isPresent(agent)
+        return HStack(spacing: 10) {
+            Image(systemName: status == .installed ? "checkmark.circle.fill" : status == .outdated ? "arrow.triangle.2.circlepath.circle.fill" : "circle.dashed")
+                .font(.title3)
+                .foregroundStyle(status == .installed ? Color.green : status == .outdated ? Color.orange : Color.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(agent.name)
+                if agent.agents.count > 1 {
+                    Text(ListFormatter.localizedString(byJoining: agent.agents.map(\.name)))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Text(present || status != .notInstalled ? store.displayPath(agent.file) : "Not found on this Mac")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                if status == .foreign {
+                    Text("A file Envy didn't write is already there, so Envy leaves it alone.")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            }
+            Spacer()
+            switch status {
+            case .installed:
+                Button("Remove") { attempt { try store.removeInstructions(agent) } }
+            case .outdated:
+                Button("Remove") { attempt { try store.removeInstructions(agent) } }
+                Button("Update") { attempt { try store.installInstructions([agent]) } }
+            case .notInstalled:
+                if present { Button("Install") { attempt { try store.installInstructions([agent]) } } }
+            case .foreign:
+                EmptyView()
+            }
         }
     }
 
